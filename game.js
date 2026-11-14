@@ -209,9 +209,88 @@ function softMat(color, ghost, o={}){
   const m = new THREE.MeshPhysicalMaterial({ color, roughness:o.rough??.72, metalness:0, sheen:o.sheen??.55, sheenRoughness:.7, sheenColor:new THREE.Color(color).lerp(new THREE.Color(0xffffff),.35) });
   if(ghost){ m.transparent=true; m.opacity=.4; m.depthWrite=false; } else patch(m, { rim:[o.rim??0xffe2c4, o.rimS??.28, 2.6] });
   return m; }
+const SHOP_STAND = `<svg class="shop-svg" viewBox="0 0 64 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 8h52l-5 16H11L6 8z" fill="#fff4d6" stroke="#16163a" stroke-width="3" stroke-linejoin="round"/><path d="M14 8l4 16h9L23 8z" fill="#ff5b6c"/><path d="M36 8l4 16h9L45 8z" fill="#ff5b6c"/><path d="M6 8h52" fill="none" stroke="#16163a" stroke-width="3"/><circle cx="14" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="26" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><circle cx="38" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="50" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><rect x="12" y="28" width="40" height="20" rx="4" fill="#e39a3a" stroke="#16163a" stroke-width="3"/><rect x="20" y="32" width="24" height="10" rx="2" fill="#7fd6ff" stroke="#16163a" stroke-width="2"/><polygon points="32,4 34.2,8.6 39.2,9 35.4,12.4 36.5,17.2 32,14.6 27.5,17.2 28.6,12.4 24.8,9 29.8,8.6" fill="#ffc94a" stroke="#16163a" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+const PLAYABLE = new Set(['ollie','dash','finn','bubbles','oscar','wade']);
+function isPlayable(id){ return PLAYABLE.has(id); }
+function flukeGroup(mat){
+  const g=new THREE.Group();
+  const stem=new THREE.Mesh(new THREE.CapsuleGeometry(.07,.22,8,12), mat); stem.rotation.x=Math.PI/2; stem.position.set(0,.02,-.16); g.add(stem);
+  for(const s of [-1,1]){ const f=new THREE.Mesh(new THREE.SphereGeometry(.28,16,12), mat); f.scale.set(.95,.18,.55); f.position.set(.26*s,.02,-.38); f.rotation.y=.35*s; g.add(f); }
+  return g;
+}
+function fishTailGroup(mat){
+  const g=new THREE.Group();
+  const stem=new THREE.Mesh(new THREE.CapsuleGeometry(.06,.16,8,12), mat); stem.rotation.x=Math.PI/2; stem.position.set(0,.08,-.16); g.add(stem);
+  for(const s of [-1,1]){ const f=new THREE.Mesh(new THREE.SphereGeometry(.18,14,10), mat); f.scale.set(.28,1.05,.7); f.position.set(0,.08+.12*s,-.34); f.rotation.x=.5*s; g.add(f); }
+  return g;
+}
+function finnBodyTex(){
+  const c=document.createElement('canvas'); c.width=16; c.height=256; const g=c.getContext('2d');
+  g.fillStyle='#ff7a1a'; g.fillRect(0,0,16,256);
+  g.fillStyle='#fff4e0';
+  [[36,26],[80,28],[126,28],[174,24]].forEach(([y,h])=>g.fillRect(0,y,16,h));
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.needsUpdate=true; return t;
+}
+function wadeBodyTex(){
+  const c=document.createElement('canvas'); c.width=256; c.height=256; const g=c.getContext('2d');
+  g.fillStyle='#5c7e9c'; g.fillRect(0,0,256,256);
+  g.fillStyle='#f4f7fb';
+  const rand=(s)=>{ s|=0; s=(s*1664525+1013904223)|0; return (s>>>0)/4294967296; };
+  for(let i=0;i<90;i++){ const u=rand(1000+i), v=rand(2000+i), r=2.2+rand(3000+i)*4.2; g.beginPath(); g.arc(u*256,v*200+8,r,0,Math.PI*2); g.fill(); }
+  g.fillStyle='#eef3f8';
+  g.fillRect(118,8,6,70); g.fillRect(132,8,6,70);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.needsUpdate=true; return t;
+}
+function dressSpecies(kind, rig, parts, ghost, mats){
+  const { brown, cream, darker, black } = mats;
+  const addBelly=(color, sx,sy,sz, y,z)=>{ const m=softMat(color, ghost, {rim:0xffffff, rimS:.18, sheen:.25}); const b=new THREE.Mesh(new THREE.SphereGeometry(1,28,20), m); b.scale.set(sx,sy,sz); b.position.set(0,y,z); rig.add(b); return b; };
+  const addDorsal=(y,z,h,w)=>{ const fin=new THREE.Mesh(new THREE.SphereGeometry(.28,16,12), brown); fin.scale.set(w,.22,h); fin.rotation.x=-.35; fin.position.set(0,y,z); rig.add(fin); };
+  if(kind==='dash'){
+    addBelly(0xffffff,.42,.5,.22,.78,.36);
+    const sn=new THREE.Mesh(new THREE.SphereGeometry(.2,20,14), brown); sn.scale.set(1.05,.72,1.25); sn.position.set(0,-.02,.38); parts.head.add(sn);
+    const snw=new THREE.Mesh(new THREE.SphereGeometry(.12,16,12), softMat(0xffffff,ghost,{sheen:.2})); snw.scale.set(1.1,.55,1); snw.position.set(0,-.08,.5); parts.head.add(snw);
+    addDorsal(1.78,-.22,.95,.24);
+    const fl=flukeGroup(brown); fl.position.set(0,.28,-.28); rig.add(fl); parts.tail=fl;
+    for(const s of [-1,1]){ parts['arm'+s].scale.set(1.15,.7,1.7); parts['foot'+s].scale.set(.19,.09,.26); }
+  } else if(kind==='finn'){
+    const tex=finnBodyTex(); const fm=softMat(0xffffff, ghost); fm.map=tex; fm.sheen=0; fm.needsUpdate=true; parts.body.material=fm;
+    for(const s of [-1,1]){ const nub=new THREE.Mesh(new THREE.SphereGeometry(.1,12,10), brown); nub.position.set(.1*s,.4,-.02); parts.head.add(nub); parts['arm'+s].scale.set(1.15,.85,1.25); parts['foot'+s].scale.set(.16,.09,.18); parts['foot'+s].material=softMat(0xff7a1a,ghost); }
+    const ft=fishTailGroup(brown); ft.position.set(0,.4,-.28); rig.add(ft); parts.tail=ft;
+  } else if(kind==='bubbles'){
+    addBelly(0xffe4f2,.45,.5,.24,.8,.34);
+    const gill=softMat(0xd44d9a, ghost, {rim:0xffb6d9, rimS:.35}), gill2=softMat(0xc13a84, ghost);
+    for(const s of [-1,1]){
+      for(let i=0;i<3;i++){
+        const br=new THREE.Group(); br.position.set(.58*s,.2+i*.08,.16); br.rotation.z=s*(.85+i*.45); br.rotation.y=-s*.15; parts.head.add(br);
+        const stem=new THREE.Mesh(new THREE.CapsuleGeometry(.05,.28,6,8), gill); stem.position.y=.2; br.add(stem);
+        for(let k=0;k<4;k++){ const fr=new THREE.Mesh(new THREE.SphereGeometry(.1-k*.01,10,8), k?gill:gill2); fr.position.set((k-1.5)*.05,.22+k*.1,.04); br.add(fr); }
+      }
+      parts['foot'+s].scale.set(.15,.08,.2);
+    }
+    const tl=new THREE.Mesh(new THREE.CapsuleGeometry(.1,.36,8,12), brown); tl.rotation.set(.6,0,.4); tl.position.set(.12,.28,-.36); rig.add(tl); parts.tail=tl;
+  } else if(kind==='oscar'){
+    addBelly(0xf6f6f6,.46,.62,.26,.78,.34);
+    for(const s of [-1,1]){
+      const p=new THREE.Mesh(new THREE.SphereGeometry(.2,16,12), softMat(0xffffff,ghost,{sheen:.2})); p.scale.set(.95,1.15,.55); p.position.set(.32*s,.12,.4); parts.head.add(p);
+      parts['arm'+s].scale.set(1.2,.75,1.65); parts['foot'+s].material=softMat(0xf3f3f3,ghost); parts['foot'+s].scale.set(.18,.09,.22);
+    }
+    addDorsal(1.95,-.12,.85,.22);
+    const fl=flukeGroup(brown); fl.position.set(0,.28,-.3); rig.add(fl); parts.tail=fl;
+  } else if(kind==='wade'){
+    const tex=wadeBodyTex(); const wm=softMat(0xffffff, ghost); wm.map=tex; wm.needsUpdate=true; parts.body.material=wm;
+    addBelly(0xf0e4cc,.5,.48,.26,.72,.34);
+    const sn=new THREE.Mesh(new THREE.SphereGeometry(.28,20,14), softMat(0xf0e4cc,ghost,{sheen:.2})); sn.scale.set(1.2,.62,1.1); sn.position.set(0,-.16,.34); parts.head.add(sn);
+    addDorsal(1.8,-.28,.8,.22);
+    const spotM=softMat(0xf4f7fb,ghost,{sheen:.1});
+    [[.28,1.72,.3,.07],[ -.28,1.72,.3,.07],[.38,1.5,.2,.06],[-.38,1.5,.2,.06],[.22,1.88,.12,.055],[-.22,1.88,.12,.055],[.45,1.25,.18,.065],[-.45,1.25,.18,.065]].forEach(([x,y,z,r])=>{ const sp=new THREE.Mesh(new THREE.SphereGeometry(r,10,8), spotM); sp.position.set(x,y,z); rig.add(sp); });
+    const fl=flukeGroup(brown); fl.position.set(0,.3,-.3); rig.add(fl); parts.tail=fl;
+    for(const s of [-1,1]){ parts['arm'+s].scale.set(1.25,.7,1.8); parts['foot'+s].scale.set(.2,.1,.24); }
+  }
+}
 function buildOllie(opts={}){
   const { charId=S.selChar, equipped=S.equipped, ghost=false } = opts;
-  const ch = CMAP[charId]||CMAP.ollie; const GEO=ollieGeos();
+  const rawId = charId || 'ollie'; const kind = isPlayable(rawId) ? rawId : 'ollie';
+  const ch = CMAP[kind]||CMAP.ollie; const GEO=ollieGeos(); const otter = kind==='ollie';
   const g = new THREE.Group(); const rig = new THREE.Group(); g.add(rig); const parts = { rig };
   const brown = softMat(ch.color, ghost), cream = softMat(0xfbe6c2, ghost, {rim:0xffffff, rimS:.22, sheen:.3}), darker = softMat(new THREE.Color(ch.color).multiplyScalar(.85).getHex(), ghost);
   const black = new THREE.MeshPhysicalMaterial({ color:0x0a0a0a, roughness:.08, clearcoat:1, clearcoatRoughness:.05 }); if(ghost){ black.transparent=true; black.opacity=.4; }
@@ -219,22 +298,23 @@ function buildOllie(opts={}){
   const head = new THREE.Group(); head.position.y=1.45; rig.add(head); parts.head=head;
   const hatA = new THREE.Group(); hatA.position.y=.02; hatA.scale.setScalar(1.16); head.add(hatA); parts.hatAnchor=hatA;
   const eyeA = new THREE.Group(); eyeA.position.set(0,-.07,0); eyeA.scale.setScalar(1.12); head.add(eyeA); parts.eyeAnchor=eyeA;
-  // cream muzzle / cheek patch (slightly proud of the head surface)
-  cream.alphaMap=GEO.muzzleMask; cream.alphaTest=.5; cream.side=THREE.DoubleSide; cream.emissive=new THREE.Color(0x5a4a30);
-  const face = new THREE.Mesh(GEO.muzzle, cream); face.position.set(0,-.03,0); head.add(face);
+  if(otter){ cream.alphaMap=GEO.muzzleMask; cream.alphaTest=.5; cream.side=THREE.DoubleSide; cream.emissive=new THREE.Color(0x5a4a30);
+    const face = new THREE.Mesh(GEO.muzzle, cream); face.position.set(0,-.03,0); head.add(face); }
   for(const s of [-1,1]){
     const eye = new THREE.Mesh(GEO.sphere, black); eye.scale.setScalar(.072); eye.position.set(.2*s,.115,.49); head.add(eye);
     const shine = new THREE.Mesh(GEO.sphere, new THREE.MeshBasicMaterial({color:0xffffff})); shine.scale.setScalar(.02); shine.position.set(.2*s+.024,.142,.553); head.add(shine);
-    const ear = new THREE.Mesh(GEO.sphere, brown); ear.scale.set(.12,.12,.08); ear.position.set(.41*s,.33,-.02); head.add(ear);
-    const earIn = new THREE.Mesh(GEO.sphere, darker); earIn.scale.set(.07,.07,.03); earIn.position.set(.43*s,.33,.045); head.add(earIn);
+    if(otter){ const ear = new THREE.Mesh(GEO.sphere, brown); ear.scale.set(.12,.12,.08); ear.position.set(.41*s,.33,-.02); head.add(ear);
+      const earIn = new THREE.Mesh(GEO.sphere, darker); earIn.scale.set(.07,.07,.03); earIn.position.set(.43*s,.33,.045); head.add(earIn); }
     const sh = new THREE.Group(); sh.position.set(.49*s,1.1,.08); rig.add(sh); parts['sh'+s]=sh;
     const arm = new THREE.Mesh(GEO.arm, brown); arm.position.set(.03*s,-.2,0); arm.rotation.z=.12*s; sh.add(arm); parts['arm'+s]=arm;
     const foot = new THREE.Mesh(GEO.sphere, darker); foot.scale.set(.17,.1,.23); foot.position.set(.21*s,.07,.12); rig.add(foot); parts['foot'+s]=foot;
-    for(const k of [-1,1]){ const toe=new THREE.Mesh(GEO.sphere, softMat(new THREE.Color(ch.color).multiplyScalar(.6).getHex(), ghost)); toe.scale.set(.008,.035,.02); toe.position.set(.05*k,.0,.22); foot.add(toe); toe.scale.set(.05,.35,.12); toe.position.set(.33*k,.1,.92); }
+    if(otter){ for(const k of [-1,1]){ const toe=new THREE.Mesh(GEO.sphere, softMat(new THREE.Color(ch.color).multiplyScalar(.6).getHex(), ghost)); toe.scale.set(.05,.35,.12); toe.position.set(.33*k,.1,.92); foot.add(toe); } }
   }
-  const nose = new THREE.Mesh(GEO.sphere, black); nose.scale.set(.09,.062,.06); nose.position.set(0,.0,.575); head.add(nose);
+  if(otter){ const nose = new THREE.Mesh(GEO.sphere, black); nose.scale.set(.09,.062,.06); nose.position.set(0,.0,.575); head.add(nose); }
   for(const s of [-1,1]){ const sm = new THREE.Mesh(GEO.smile, black); sm.rotation.z=Math.PI; sm.position.set(.043*s,-.085,.57); sm.rotation.x=-.25; head.add(sm); }
-  const tail = new THREE.Mesh(GEO.tail, brown); tail.position.set(.04,.33,-.3); rig.add(tail); parts.tail=tail;
+  if(otter){ const tail = new THREE.Mesh(GEO.tail, brown); tail.position.set(.04,.33,-.3); rig.add(tail); parts.tail=tail; }
+  else dressSpecies(kind, rig, parts, ghost, { brown, cream, darker, black });
+  if(!parts.tail){ const tail = new THREE.Mesh(GEO.tail, brown); tail.position.set(.04,.33,-.3); rig.add(tail); parts.tail=tail; }
   g.traverse(o=>{ if(o.isMesh) o.userData.base=true; });
   if(!ghost) addEquipment(rig, parts, equipped);
   g.traverse(o=>{ if(o.isMesh){ o.castShadow=!ghost; } });
@@ -385,9 +465,9 @@ const lobby = { scene:new THREE.Scene(), ollie:null, t:0 };
   const rays=godRays(11, 9); rays.position.set(0,0,-5); rays.userData.isRays=true; sc.add(rays); lobby.rays=rays;
   lobby.bubbles=makeBubbles(sc,70,10,10); specks(sc,250,14,9);
 })();
-function setLobbyOllie(){ if(lobby.ollie) lobby.scene.remove(lobby.ollie); lobby.ollie=buildOllie(); lobby.ollie.userData.baseY=.52; lobby.ollie.position.y=.52; lobby.ollie.scale.setScalar(1.6); lobby.scene.add(lobby.ollie); }
+function setLobbyOllie(){ if(lobby.ollie) lobby.scene.remove(lobby.ollie); lobby.ollie=buildOllie(); const shop=viewOffsetMode==='shop'; lobby.ollie.userData.baseY=shop?.28:.52; lobby.ollie.position.y=lobby.ollie.userData.baseY; lobby.ollie.scale.setScalar(shop?1.25:1.6); lobby.scene.add(lobby.ollie); }
 let viewOffsetMode=null;
-function updateViewOffset(){ const w=innerWidth,h=innerHeight; if(viewOffsetMode==='closet') camera.setViewOffset(w,h,w*.3,0,w,h); else camera.clearViewOffset(); }
+function updateViewOffset(){ const w=innerWidth,h=innerHeight; if(viewOffsetMode==='closet') camera.setViewOffset(w,h,w*.3,0,w,h); else if(viewOffsetMode==='shop') camera.setViewOffset(w,h,w*.26,h*.04,w,h); else camera.clearViewOffset(); }
 
 /* ===================== GAME STATE ===================== */
 const G = { mode:null, scene:null, player:null, yaw:0, pitch:.9, camDist:9.5, vel:new THREE.Vector3(), coins:[], collected:0, time:0, running:false, paused:false, dashT:0, dashCd:0, jellies:[], weeds:[] };
@@ -721,7 +801,7 @@ function refreshPicker(){ const m=S.mode, el=$('#lvlPick'); const show = m==='ma
   $('#lvlDown').classList.toggle('off', cur<=1); $('#lvlUp').classList.toggle('off', cur>=mx); el.classList.toggle('replay', cur<mx); }
 function stepPick(d){ const m=S.mode; if(m!=='maze'&&m!=='cards') return; const nv=Math.max(1, Math.min(pickMax(m), pickCur(m)+d)); if(nv===pickCur(m)){ SFX.miss(); if(d>0) toast(`Finish ${m==='maze'?'Level':'Round'} ${pickMax(m)} to unlock the next one! 🔓`); return; } PICK[m]=nv; SFX.click(); refreshLobby(); }
 $('#lvlDown').onclick=()=>stepPick(-1); $('#lvlUp').onclick=()=>stepPick(1);
-function refreshLobby(){ refreshCoins(); $$('.mode').forEach(b=>b.classList.toggle('sel', b.dataset.mode===S.mode)); refreshPicker(); $('#playSub').textContent = S.mode==='maze'?`Maze · Level ${pickCur('maze')}`:S.mode==='race'?'Race · beat the clock':S.mode==='sort'?'Reef Sort · match the friends':`Match Cards · Round ${pickCur('cards')}`; $('.avatar').innerHTML=`<img src="${artUrl('ollie')}" alt="Ollie">`; }
+function refreshLobby(){ refreshCoins(); $$('.mode').forEach(b=>b.classList.toggle('sel', b.dataset.mode===S.mode)); refreshPicker(); $('#playSub').textContent = S.mode==='maze'?`Maze · Level ${pickCur('maze')}`:S.mode==='race'?'Race · beat the clock':S.mode==='sort'?'Reef Sort · match the friends':`Match Cards · Round ${pickCur('cards')}`; $('.avatar').innerHTML=`<img src="${artUrl(S.selChar||'ollie')}" alt="${(CMAP[S.selChar]||CMAP.ollie).name.split(' the ')[0]}">`; }
 $$('.mode').forEach(b=>b.onclick=()=>{ SFX.click(); S.mode=b.dataset.mode; save(); refreshLobby(); });
 function startSort(){ active='none'; openReefSort({ ECO, S, save, onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); } }); }
 $('#playBtn').onclick=()=>{ ac(); SFX.go(); if(S.mode==='maze') startMaze(pickCur('maze')); else if(S.mode==='race') startRace(); else if(S.mode==='sort') startSort(); else startCards(pickCur('cards')); };
@@ -731,9 +811,9 @@ $('#profileBtn').onclick=()=>{ const n=prompt('Your player name:', S.name); if(n
 $$('[data-open]').forEach(b=>b.onclick=()=>{ SFX.click(); openPanel(b.dataset.open); });
 $('#panelBack').onclick=()=>{ SFX.click(); closePanel(); };
 let panelState={};
-function closePanel(){ viewOffsetMode=null; updateViewOffset(); $('#panel').classList.remove('closet'); active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); }
-function openPanel(which, sub){ panelState.which=which; if(sub) panelState.sub=sub; showScreen('panel'); const P=$('#panel'); P.classList.toggle('closet', which==='closet'); viewOffsetMode = which==='closet'?'closet':null; updateViewOffset(); active = which==='closet'?'lobby':'none'; if(which==='closet') setLobbyOllie();
-  $('#panelTitle').textContent = {shop:'SHOP',characters:'CHARACTERS',closet:'CLOSET',leaderboard:'LEADERBOARD',chests:'CHESTS'}[which];
+function closePanel(){ viewOffsetMode=null; updateViewOffset(); $('#panel').classList.remove('closet','shop'); active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); }
+function openPanel(which, sub){ panelState.which=which; if(sub) panelState.sub=sub; showScreen('panel'); const P=$('#panel'); P.classList.toggle('closet', which==='closet'); P.classList.toggle('shop', which==='shop'); viewOffsetMode = (which==='closet'||which==='shop')?which:null; updateViewOffset(); active = (which==='closet'||which==='shop')?'lobby':'none'; if(which==='closet'||which==='shop') setLobbyOllie();
+  $('#panelTitle').innerHTML = {shop:`<span class="shop-stand mini" aria-hidden="true">${SHOP_STAND}</span>SHOP`,characters:'CHARACTERS',closet:'CLOSET',leaderboard:'LEADERBOARD',chests:'CHESTS'}[which];
   ({shop:renderShop,characters:renderChars,closet:renderCloset,leaderboard:renderLB,chests:renderChests})[which](); refreshCoins(); }
 function tabs(list, cur, cb){ return `<div class="tabs">${list.map(([k,l])=>`<button class="btn small ${k===cur?'':'blue'}" data-tab="${k}">${l}</button>`).join('')}</div>`; }
 function bindTabs(cb){ $$('#panelBody [data-tab]').forEach(b=>b.onclick=()=>{ SFX.click(); cb(b.dataset.tab); }); }
@@ -746,14 +826,14 @@ function renderShop(){ const sub=panelState.shopTab||'clothes'; const body=$('#p
   body.innerHTML = `<div class="shop-layout"><div class="cats">${cats.map(([k,ic,l])=>`<button class="cat ${k===sub?'sel':''}" data-tab="${k}"><span>${ic}</span>${l}</button>`).join('')}</div><div class="shop-main">` + (sub==='chests'? '' : filterChips('shop', selAll, ownFn) + `<div class="grid">${sel.map(it=>{
     const owned = sub==='characters'? S.chars.includes(it.id) : S.owned.includes(it.id); const chestOnly = it.r==='legendary'||it.r==='cosmic';
     const ph = owned? '<div class="price owned">OWNED</div>' : chestOnly? '<div class="price locked">🎁 Chest only</div>' : `<div class="price">${STAR} ${it.price}</div>`;
-    return itemCard(it, ph, owned?'':(chestOnly?'lock':'')); }).join('')}</div><p class="note">${sub==='characters'?'Characters you unlock join your collection — their 3D models are coming soon, so you play as Ollie for now.':'Legendary & Cosmic items only come from chests!'}</p>`) + `</div><div class="mini-lb"><div class="mlb-title">🏆 LEADERBOARD</div>${lbRows.slice(0,5).map((r,i)=>`<div class="mlb-row ${r.me?'me':''}"><b>${i+1}.</b><img src="${artUrl(r.a)}" alt=""><div><div class="mlb-n">${r.n}</div><div class="mlb-v">Level ${r.v}${r.me?'':' <i>(sample)</i>'}</div></div></div>`).join('')}</div></div>`;
+    return itemCard(it, ph, owned?'':(chestOnly?'lock':'')); }).join('')}</div><p class="note">${sub==='characters'?'Characters you unlock join your collection. Pick a ready friend in Characters to play as them!':'Legendary & Cosmic items only come from chests!'}</p>`) + `</div><div class="mini-lb"><div class="mlb-title">🏆 LEADERBOARD</div>${lbRows.slice(0,5).map((r,i)=>`<div class="mlb-row ${r.me?'me':''}"><b>${i+1}.</b><img src="${artUrl(r.a)}" alt=""><div><div class="mlb-n">${r.n}</div><div class="mlb-v">Level ${r.v}${r.me?'':' <i>(sample)</i>'}</div></div></div>`).join('')}</div></div>`;
   bindTabs(k=>{ if(k==='chests'){ openPanel('chests'); return; } panelState.shopTab=k; renderShop(); }); bindChips('shop', renderShop);
   $$('#panelBody .item').forEach(el=>el.onclick=()=>{ const id=el.dataset.id; const it=sub==='characters'?CMAP[id]:IMAP[id]; const owned= sub==='characters'?S.chars.includes(id):S.owned.includes(id); if(owned){ toast(sub==='characters'?'Already in your collection!':'Owned! Equip it in the Closet 👕'); return; } if(it.r==='legendary'||it.r==='cosmic'){ toast('Find this in a chest! 🎁'); return; }
     if(S.coins<it.price){ SFX.miss(); toast(`Need ${it.price-S.coins} more starfish ${STAR}`); return; }
     showModal(`<h2>BUY?</h2><div class="prize">${iconHtml(it)}<div class="big">${it.name}</div></div><p>for ${STAR} ${it.price}</p>`, [['BUY!','green',()=>{ S.coins-=it.price; (sub==='characters'?S.chars:S.owned).push(id); if(sub!=='characters'){ S.equipped[it.slot]=id; } save(); SFX.chest(1); confetti(RMAP[it.r].color); hideModal(); toast(sub==='characters'?`${it.name} joined your crew!`:`${it.name} equipped!`); renderShop(); }],['NO','gray',hideModal]]); }); }
-function renderChars(){ const body=$('#panelBody'); const list=applyFilter('chars', CHARS); body.innerHTML = filterChips('chars', CHARS, c=>S.chars.includes(c.id)) + `<p class="note">Tap an unlocked character to make them your favorite. Only Ollie is playable in this prototype — more 3D models are coming!</p><div class="grid">${list.map(c=>{ const own=S.chars.includes(c.id); const ph= c.id===S.selChar?'<div class="price owned">⭐ SELECTED</div>' : own?'<div class="price owned">UNLOCKED</div>':'<div class="price locked">🔒 LOCKED</div>'; return itemCard(c, ph, (own?'':'lock')+(c.id===S.selChar?' eq':'')); }).join('')}</div>`;
+function renderChars(){ const body=$('#panelBody'); const list=applyFilter('chars', CHARS); body.innerHTML = filterChips('chars', CHARS, c=>S.chars.includes(c.id)) + `<p class="note">Tap an unlocked friend to play as them in the lobby, Maze, and Race! Dash, Finn, Bubbles, Oscar, Wade, and Ollie are ready — more 3D models are on the way.</p><div class="grid">${list.map(c=>{ const own=S.chars.includes(c.id); const ph= c.id===S.selChar?'<div class="price owned">⭐ SELECTED</div>' : own?'<div class="price owned">UNLOCKED</div>':'<div class="price locked">🔒 LOCKED</div>'; return itemCard(c, ph, (own?'':'lock')+(c.id===S.selChar?' eq':'')); }).join('')}</div>`;
   bindChips('chars', renderChars);
-  $$('#panelBody .item').forEach(el=>el.onclick=()=>{ const id=el.dataset.id; if(!S.chars.includes(id)){ toast('Unlock in the Shop or from chests!'); return; } if(id!=='ollie'){ toast(`${CMAP[id].name}: 3D model coming soon! Ollie will play for now.`); } S.selChar = 'ollie'; if(id!=='ollie') S.favChar=id; save(); SFX.click(); }); }
+  $$('#panelBody .item').forEach(el=>el.onclick=()=>{ const id=el.dataset.id; if(!S.chars.includes(id)){ toast('Unlock in the Shop or from chests!'); return; } if(!isPlayable(id)){ S.favChar=id; save(); SFX.click(); toast(`${CMAP[id].name}: 3D model coming soon!`); return; } S.selChar=id; save(); SFX.click(); setLobbyOllie(); renderChars(); toast(`${CMAP[id].name.split(' the ')[0]} is ready to play!`); }); }
 const CLOSET_ROWS = [['Hats',i=>i.slot==='hat'],['Eyewear',i=>i.slot==='eyes'],['Tops & Jackets',i=>i.slot==='top'],['Pants',i=>i.slot==='bottom'],['Shoes',i=>i.slot==='shoes'],['Bracelets & Gloves',i=>i.slot==='wrist'||i.slot==='hands']];
 function renderCloset(){ const body=$('#panelBody'); const ownedAll=ITEMS.filter(i=>S.owned.includes(i.id)); const owned=applyFilter('closet', ownedAll);
   const tile=it=>{ const R=RMAP[it.r]; const on=S.equipped[it.slot]===it.id; const bg=it.r==='cosmic'?'linear-gradient(160deg,#3a1a8a,#1a7fbf,#a03aa8)':`linear-gradient(160deg,${R.color},${shade(R.color)})`;
@@ -831,4 +911,4 @@ $('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quit
 /* ===================== INIT ===================== */
 resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
-window.__zkidz = { S, G, ECO, ITEMS, CHARS, quitToLobby, startMaze, startRace, startCards, startSort, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal };
+window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie };
