@@ -46,8 +46,24 @@ const shuffle=(a,r)=>{ for(let i=a.length-1;i>0;i--){ const j=Math.floor(r()*(i+
 /** Params for level n (1-based). Past the last level we serve endless "bonus" levels at max difficulty. */
 export function levelParams(n){ if(n<=LEVELS.length) return { ...LEVELS[n-1], n }; const last=LEVELS[LEVELS.length-1]; return { ...last, chars:Math.min(12, last.chars+1), seed:null, n, bonus:true }; }
 
-/** Pick which friends appear: early levels draw from the most distinct ones; the pool widens as levels go up. */
-function pickChars(p, r){ const poolSize=Math.min(SORT_CHARS.length, p.chars + 2*p.n); const pool=shuffle([...Array(poolSize).keys()], r); return pool.slice(0, p.chars); }
+/** Friends that look too alike on a small tile (same colour / same body shape). Never put both in one level. */
+export const LOOKALIKES = [
+  ['bubbles','squirt'],['bella','gus'],['squirt','hank'],['bubbles','hank'],         // pink / white
+  ['pip','polly'],['pip','oscar'],['polly','oscar'],                                  // black & white
+  ['sunny','mo'],['sunny','sharkie'],['mo','sharkie'],['sharkie','percy'],['sunny','percy'], // grey
+  ['ollie','tusk'],['inky','nudi'],['jelly','nudi'],['inky','jelly'],['echo','shelly'],                // brown / purple / green
+  ['finn','stella'],['finn','coco'],['stella','coco'],['puff','angie'],               // orange / yellow
+  ['dash','wally'],['dash','lulu'],['wally','lulu'],['zippy','wally'],['zippy','dash'],['zippy','lulu'], // blue
+  ['nova','hammy'],['milo','wade'],                                                   // teal / navy
+];
+const LOOK = new Set(LOOKALIKES.flatMap(([a,b])=>[a+'|'+b, b+'|'+a]));
+export const looksAlike = (i, j) => LOOK.has(SORT_CHARS[i].id+'|'+SORT_CHARS[j].id);
+/** Pick which friends appear: early levels draw from the most distinct ones; the pool widens as levels go up.
+ *  Same rng use as before (so every stored seed keeps its proven-solvable layout); look-alikes are skipped,
+ *  topping up from the rest of the list in order if the pool runs short. */
+function pickChars(p, r){ const poolSize=Math.min(SORT_CHARS.length, p.chars + 2*p.n); const pool=shuffle([...Array(poolSize).keys()], r);
+  const out=[]; for(const c of [...pool, ...SORT_CHARS.keys()]){ if(out.length>=p.chars) break; if(!out.includes(c) && !out.some(o=>looksAlike(o,c))) out.push(c); }
+  return out; }
 
 /** Lay out a list of items (char indexes) over T trays with up to L layers. Returns trays or null. */
 export function layout(items, T, L, slack, r){

@@ -46,7 +46,7 @@ export function todayStr(d=new Date()){ return `${d.getFullYear()}-${String(d.ge
 export function migrateSave(S){
   S.pity = Object.assign({ rare:0, epic:0, mythic:0, ultra:0, legendary:0, cosmic:0 }, S.pity||{});
   S.shards = Object.assign(Object.fromEntries(TIERS.map(t=>[t,0])), S.shards||{});
-  for(const k of ['freeChestsToday','boughtChestsToday','activitiesToday']) if(typeof S[k]!=='number') S[k]=0;
+  for(const k of ['freeChestsToday','boughtChestsToday','activitiesToday','rsBonusToday']) if(typeof S[k]!=='number') S[k]=0; // rsBonusToday: Reef Sort skill bonus paid today (default 0)
   if(typeof S.playDate!=='string') S.playDate='';
   if(typeof S.loginDate!=='string') S.loginDate='';
   if(!S.gotTier){ S.gotTier={}; for(const i of ITEMS) if(S.owned.includes(i.id)) S.gotTier[i.r]=true; for(const c of CHARS) if(c.id!=='ollie' && S.chars.includes(c.id)) S.gotTier[c.r]=true; }
@@ -60,7 +60,7 @@ export function migrateSave(S){
  *  Returns true when the once-a-day hello (+10) was just granted. No streaks, nothing lost by skipping days. */
 export function ensureDay(S){
   const t=todayStr();
-  if(S.playDate!==t){ S.playDate=t; S.freeChestsToday=0; S.boughtChestsToday=0; S.activitiesToday=0; }
+  if(S.playDate!==t){ S.playDate=t; S.freeChestsToday=0; S.boughtChestsToday=0; S.activitiesToday=0; S.rsBonusToday=0; }
   if(S.loginDate!==t){ S.loginDate=t; S.coins+=DAILY_LOGIN_STARFISH; return true; }
   return false;
 }

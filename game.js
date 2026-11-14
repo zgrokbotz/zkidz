@@ -524,8 +524,8 @@ function startMaze(level){
   const ex=tileToWorld(mz.exit[0],mz.exit[1],T); const chest=makeChest('legendary'); chest.position.copy(ex); sc.add(chest); G.chest=chest;
   const arch=archway(); arch.position.copy(ex); sc.add(arch);
   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) if(!grid[mz.exit[0]+dx][mz.exit[1]+dy]){ chest.rotation.y=Math.atan2(dx,dy); arch.rotation.y=chest.rotation.y; break; }
-  // jellyfish obstacles from level 3
-  const nJ=Math.max(0,Math.min(8,level-2)); for(let k=0;k<nJ;k++){ const [i,j]=pick(paths.filter(([a,b])=>mz.dist[a][b]>6)); const jf=makeJelly(); const p=tileToWorld(i,j,T); jf.position.set(p.x,1.1,p.z); const horiz = !grid[i+1][j]||!grid[i-1][j]; jf.userData.dir = horiz? new THREE.Vector3(1,0,0):new THREE.Vector3(0,0,1); jf.userData.ph=rand(0,6); sc.add(jf); G.jellies.push(jf);} 
+  // jellyfish obstacles from level 4 (Zinigames follow-up: levels 1-3 stay jelly-free)
+  const nJ=Math.max(0,Math.min(8,level-3)); for(let k=0;k<nJ;k++){ const [i,j]=pick(paths.filter(([a,b])=>mz.dist[a][b]>6)); const jf=makeJelly(); const p=tileToWorld(i,j,T); jf.position.set(p.x,1.1,p.z); const horiz = !grid[i+1][j]||!grid[i-1][j]; jf.userData.dir = horiz? new THREE.Vector3(1,0,0):new THREE.Vector3(0,0,1); jf.userData.ph=rand(0,6); sc.add(jf); G.jellies.push(jf);} 
   G.bubbles=makeBubbles(sc,low?70:150,half+6,12); specks(sc, low?150:400, half+8, 9);
   const s=tileToWorld(1,1,T); let yaw=0; if(!grid[2][1]) yaw=Math.PI/2; else yaw=0; spawnPlayer(s.x,s.z,yaw);
   G.spawn=s.clone(); G.exitDist=bfsFrom(grid,T,mz.exit); G.guide=makeGuideArrow(); sc.add(G.guide); G.lostHelp=false;

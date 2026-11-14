@@ -5,12 +5,16 @@
 import { SORT_CHARS, BAR_SIZE, LEVEL_COUNT, levelParams, buildLevel, solve, reshuffle } from './levels.js';
 
 /* ============================================================================================
- * ZOKENOMICS PLACEHOLDER — NOT YET APPROVED.
- * Base Starfish for clearing one Reef Sort level. Paid ONLY through ECO.cardsEarn(S, base)
- * (same daily rule as Match Cards: full pay for the first 3 activities of the day, then half,
- * min 5) and counted as one activity via S.activitiesToday++ — exactly like cardsWin() in game.js.
+ * REWARDS — Zokenomics' numbers, approved by Zander.
+ * Base pay goes ONLY through ECO.cardsEarn(S, base) (full for the first 3 activities of the day, then
+ * half, min 5). Only every 3rd Reef Sort clear counts as one activity (S.activitiesToday). No chests, no pity.
  * ============================================================================================ */
-export const REEF_SORT_STARFISH_PER_LEVEL = 15;
+export const REEF_SORT_FIRST_CLEAR = 20;          // first clear of each story level 1-12
+export const REEF_SORT_REPLAY = 10;               // every replay and every endless/bonus level
+export const REEF_SORT_LEVELS_PER_ACTIVITY = 3;   // S.activitiesToday += 1 per 3 levels cleared
+/* Skill bonus (levels 7+ and endless). Paid on top of the base, NOT through cardsEarn (never halved),
+ * capped per level and per day (S.rsBonusToday, reset in ECO.ensureDay). Not an activity, no chests/pity. */
+export const RS_BONUS_MIN_LEVEL = 7, RS_COMBO2 = 2, RS_COMBO3 = 3, RS_ROW_CLEAR = 3, RS_BONUS_LEVEL_CAP = 6, RS_BONUS_DAILY_CAP = 40;
 
 /* Own save key — never touches the shape of zkidz_save_v1 (only coins/daily counters via ECO). */
 export const SORT_SAVE_KEY = 'zkidz_sort_v1';
@@ -23,10 +27,10 @@ export function getReefSortProgress(){ const P=loadSortSave(); return { unlocked
 /** Standalone wallet: reads the main save (zkidz_save_v1) and writes back ONLY coins + the daily counters
  *  that ECO.ensureDay/cardsEarn use, re-reading the latest save first so nothing else is overwritten. */
 export function makeLocalHost(){
-  const MAIN='zkidz_save_v1', FIELDS=['coins','activitiesToday','playDate','loginDate','freeChestsToday','boughtChestsToday'];
+  const MAIN='zkidz_save_v1', FIELDS=['coins','activitiesToday','playDate','loginDate','freeChestsToday','boughtChestsToday','rsBonusToday'];
   const read=()=>{ try{ const o=JSON.parse(localStorage.getItem(MAIN)||'null'); return (o && typeof o==='object') ? o : null; }catch(e){ return null; } };
-  const S=Object.assign({ coins:200, activitiesToday:0, playDate:'', loginDate:'', freeChestsToday:0, boughtChestsToday:0 }, read()||{});
-  for(const k of ['coins','activitiesToday','freeChestsToday','boughtChestsToday']) if(typeof S[k]!=='number') S[k]=0;
+  const S=Object.assign({ coins:200, activitiesToday:0, playDate:'', loginDate:'', freeChestsToday:0, boughtChestsToday:0, rsBonusToday:0 }, read()||{});
+  for(const k of ['coins','activitiesToday','freeChestsToday','boughtChestsToday','rsBonusToday']) if(typeof S[k]!=='number') S[k]=0;
   const save=()=>{ const cur=read()||{}; for(const k of FIELDS) cur[k]=S[k]; try{ localStorage.setItem(MAIN, JSON.stringify(cur)); }catch(e){} };
   return { S, save };
 }
@@ -84,7 +88,8 @@ export function openReefSort(opts={}){
   return api();
 }
 export function closeReefSort(){ if(!R) return; for(const t of R.timers) clearTimeout(t); window.removeEventListener('resize', R.onResize); window.removeEventListener('keydown', R.onKey); window.removeEventListener('pointermove', R.onMove); window.removeEventListener('pointerup', R.onUp); window.removeEventListener('pointercancel', R.onUp); clearHint(); R.root.remove(); R=null; }
-function api(){ return { close:closeReefSort, startLevel:(n)=>startLevel(n), get state(){ return R && R.st; }, compact:()=>toCompact(), solveNow:()=>solve(toCompact()), moveByLoc:(a,b)=>tryMove(parseLoc(a), parseLoc(b)), selectLoc:(l)=>handleTapOn($(`.rs-item[data-loc="${l}"]`)), tapLoc:(l)=>handleTapOn(locEl(l)), get busy(){ return R && R.busy; }, nextMove:()=>nextMoveLocs(), left:()=>left(), get level(){ return R && R.level; } }; }
+function api(){ return { close:closeReefSort, startLevel:(n)=>startLevel(n), get state(){ return R && R.st; }, compact:()=>toCompact(), solveNow:()=>solve(toCompact()), moveByLoc:(a,b)=>tryMove(parseLoc(a), parseLoc(b)), selectLoc:(l)=>handleTapOn($(`.rs-item[data-loc="${l}"]`)), tapLoc:(l)=>handleTapOn(locEl(l)), get busy(){ return R && R.busy; }, nextMove:()=>nextMoveLocs(), left:()=>left(), get level(){ return R && R.level; }, get skill(){ return R && { on:R.bonusOn, chain:R.chain, bonus:R.bonus }; } }; }
+const DRAG_PX = 12; // a press must travel this far before it becomes a drag — wiggles during a tap stay taps
 const later=(fn,ms)=>{ const t=setTimeout(()=>{ R && R.timers.delete(t); if(R) fn(); },ms); R.timers.add(t); return t; };
 
 /* ---------- state helpers ---------- */
@@ -105,6 +110,7 @@ function startLevel(n){
   closeModal(); clearHint(); $('.rs-fx').innerHTML='';
   const lv=buildLevel(n); R.level=n; R.params=lv.params; R.chars=lv.chars;
   R.st=fromCompact(lv); R.sel=null; R.hist=[]; R.moves=0; R.served=0; R.sets=lv.params.sets; R.cleared={}; R.busy=false; R.hintShown=false; R.softStuck=false;
+  R.bonusOn = n>=RS_BONUS_MIN_LEVEL; R.chain=0; R.bonus=0; R.rowPaid=new Set(); R.maxShown=false;
   R.orders=[null,null,null]; for(let i=0;i<3;i++) R.orders[i]=pickOrder();
   R.P.cur=n; storeSortSave(R.P);
   for(const c of R.chars){ const im=new Image(); im.src=R.art(SORT_CHARS[c].id); }
@@ -129,7 +135,7 @@ function layoutBoard(){
     const score = s>=50 ? s : (Math.min(sScroll,64) - 100); // prefer fitting; else allow scroll with big tiles
     if(!best || score>best.score) best={cols,s:s>=50?s:Math.min(sScroll,64),score};
   }
-  const s=Math.max(44, Math.floor(best.s)); R.s=s;
+  const s=Math.max(44, Math.floor(best.s)); R.s=s; R.cols=best.cols;
   const grid=$('.rs-grid'); grid.style.setProperty('--s', s+'px'); grid.style.gridTemplateColumns=`repeat(${best.cols}, auto)`;
   const b=Math.max(40, Math.min(62, Math.floor((Math.min(W,560)-60)/5.3))); R.root.style.setProperty('--b', b+'px');
 }
@@ -160,7 +166,7 @@ function refreshCoins(){ const S=R.opts.S; $('.rs-coins').textContent = S ? S.co
 function bindUI(){
   const root=R.root;
   root.addEventListener('pointerdown', onDown);
-  R.onMove=onMove; R.onUp=onUp; window.addEventListener('pointermove', onMove, {passive:false}); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp);
+  R.onMove=onMove; R.onUp=onUp; window.addEventListener('pointermove', onMove, {passive:false}); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp); // onUp also handles cancel
   R.onResize=()=>{ if(!R) return; layoutBoard(); render(false); }; window.addEventListener('resize', R.onResize);
   R.onKey=(e)=>{ if(!R || !$('.rs-modal').classList.contains('hidden')) return; const k=e.key.toLowerCase(); if(k==='z'||k==='u') undo(); else if(k==='h') onHint(); else if(k==='s') doShuffle(); else if(k==='escape') deselect(); };
   window.addEventListener('keydown', R.onKey);
@@ -175,18 +181,20 @@ function onDown(e){
   SND.ctx(); bumpIdle();
   if(e.target.closest('button') || e.target.closest('.rs-modal')) return;
   const it=e.target.closest('.rs-item[data-loc]');
-  R.press={ x:e.clientX, y:e.clientY, target:e.target, item:it, id:e.pointerId, moved:false };
+  R.press={ x:e.clientX, y:e.clientY, target:e.target, item:it, id:e.pointerId, moved:false, dist:0 };
   if(it && !R.busy){ try{ it.setPointerCapture?.(e.pointerId); }catch(_){} }
 }
 function onMove(e){
   const p=R && R.press; if(!p || e.pointerId!==p.id) return;
-  if(!p.moved && p.item && !R.busy && Math.hypot(e.clientX-p.x, e.clientY-p.y)>9){ p.moved=true; startDrag(p.item, e); }
+  p.dist=Math.max(p.dist, Math.hypot(e.clientX-p.x, e.clientY-p.y));
+  if(!p.moved && p.item && !R.busy && p.dist>DRAG_PX){ p.moved=true; startDrag(p.item, e); }
   if(R.drag){ e.preventDefault(); R.drag.g.style.left=e.clientX+'px'; R.drag.g.style.top=e.clientY+'px'; }
 }
 function onUp(e){
   const p=R && R.press; if(!p || e.pointerId!==p.id) return; R.press=null;
   if(R.drag){ endDrag(e); return; }
-  if(!p.moved) handleTapOn(p.target);
+  // tap = pick up / place. A browser pan (pointercancel) only counts as a tap if the finger barely moved.
+  if(!p.moved && (e.type!=='pointercancel' || p.dist<=DRAG_PX)) handleTapOn(p.target);
 }
 function startDrag(it, e){
   clearHint(); const r=it.getBoundingClientRect(); const g=it.cloneNode(true); g.className='rs-ghost'; g.removeAttribute('data-id'); g.style.cssText+=`;width:${r.width}px;height:${r.height}px;left:${e.clientX}px;top:${e.clientY}px`; R.root.appendChild(g);
@@ -215,8 +223,9 @@ function handleTapOn(target){
   const it=target.closest?.('.rs-item[data-loc]'); const tray=target.closest?.('.rs-tray'); const inBar=target.closest?.('.rs-barwrap');
   if(R.sel){
     if(it && it.dataset.loc===locStr(R.sel)){ deselect(); return false; }
-    if(tray){ const to=dropTarget(target, R.sel); if(to) return tryMove(R.sel, to); if(it){ select(parseLoc(it.dataset.loc)); return false; } $(`.rs-tray[data-t="${tray.dataset.t}"]`)?.classList.add('shake'); SND.nope(); later(()=>$$('.rs-tray.shake').forEach(x=>x.classList.remove('shake')),320); return false; }
-    if(inBar){ if(R.sel.bar){ if(it) select(parseLoc(it.dataset.loc)); else deselect(); return false; } return tryMove(R.sel, {bar:true}); }
+    if(it){ select(parseLoc(it.dataset.loc)); return false; } // tapping another friend switches what you're holding
+    if(tray){ const to=dropTarget(target, R.sel); if(to) return tryMove(R.sel, to); $(`.rs-tray[data-t="${tray.dataset.t}"]`)?.classList.add('shake'); SND.nope(); later(()=>$$('.rs-tray.shake').forEach(x=>x.classList.remove('shake')),320); return false; }
+    if(inBar){ if(R.sel.bar){ deselect(); return false; } return tryMove(R.sel, {bar:true}); }
     deselect(); return false;
   }
   if(it){ clearHint(); select(parseLoc(it.dataset.loc)); }
@@ -241,6 +250,8 @@ function tryMove(from, to){
   if(to.bar){ const same=R.st.bar.filter(x=>x.c===o.c); if(same.length===3) clearSet={ where:'bar', ids:same.map(x=>x.id), c:o.c }; }
   else { const L=R.st.trays[to.t][0]; if(L.every(x=>x && x.c===o.c)) clearSet={ where:to.t, ids:L.map(x=>x.id), c:o.c }; }
   const srcT = from.bar ? null : from.t;
+  // skill chain: a move is "wasted" unless it lands next to the same friend (or clears) — wasted breaks the combo
+  if(!clearSet){ const dest = to.bar ? R.st.bar : R.st.trays[to.t][0]; if(dest.filter(x=>x && x.c===o.c).length<2) R.chain=0; }
   if(clearSet) later(()=>doClear(clearSet, srcT), 230);
   else later(()=>{ settleAndRender([srcT]); finishMove(); }, srcT!=null && needsSettle(srcT) ? 160 : 0);
   return true;
@@ -257,6 +268,7 @@ function doClear(cs, srcT){
   if(oi>=0){ R.served++; const card=$(`.rs-order[data-o="${oi}"]`); card?.classList.add('done'); const [x,y]=pts[1]||pts[0]; floatText(x,y,'ORDER! ✓'); }
   else if(pts[1]) floatText(pts[1][0], pts[1][1], 'NICE!');
   cheer(cs.c);
+  R.chain++; if(R.chain>=2){ const [x,y]=pts[2]||pts[0]; later(()=>skillBonus(R.chain>=3?RS_COMBO3:RS_COMBO2, `COMBO x${R.chain}!`, x, y-40), 250); }
   later(()=>{
     if(cs.where==='bar') R.st.bar=R.st.bar.filter(x=>!cs.ids.includes(x.id)); else R.st.trays[cs.where][0]=[null,null,null];
     if(oi>=0){ R.orders[oi]=null; R.orders[oi]=pickOrder(); R.newOrder=oi; }
@@ -264,6 +276,7 @@ function doClear(cs, srcT){
     for(let i=0;i<3;i++) if(R.orders[i]==null){ R.orders[i]=pickOrder(); }
     const b=rects(); render(false); playFlip(b);
     settleAndRender([cs.where==='bar'?null:cs.where, srcT]);
+    checkRows();
     finishMove();
   }, 400);
 }
@@ -276,12 +289,12 @@ function finishMove(){
   const snap=R.moves; later(()=>{ if(!R || R.moves!==snap || R.busy) return; const ok=solve(toCompact(), { nodeCap:6000 }).ok; R.softStuck=!ok; $('.rs-hintb').classList.toggle('need', !ok); if(!ok) toast('Tricky! Tap 💡 HINT for help'); }, 150);
 }
 function undo(){
-  if(!R || R.busy || !R.hist.length) return; const h=R.hist.pop(); clearHint(); deselect(); SND.whoosh();
+  if(!R || R.busy || !R.hist.length) return; const h=R.hist.pop(); clearHint(); deselect(); SND.whoosh(); R.chain=0;
   const b=rects(); R.st=h.st; R.orders=h.orders; R.served=h.served; R.moves=h.moves; R.cleared=h.cleared; render(false); playFlip(b); $('.rs-hintb').classList.remove('need'); bumpIdle();
 }
 
 /* ===================== HINT / SHUFFLE (the kind "no fail state" helpers) ===================== */
-function onHint(){ if(!R || R.busy) return; SND.click(); showHint(false); }
+function onHint(){ if(!R || R.busy) return; SND.click(); R.chain=0; showHint(false); }
 function showHint(quiet){
   clearHint(); const res=solve(toCompact(), { nodeCap:20000 });
   if(!res.ok || !res.moves.length){ if(quiet) return; showModal(`<h2>HMM, TRICKY!</h2><p>This reef got tangled. Let's shuffle it so it works out — it's free! 🌀</p>`, [['SHUFFLE!','pink',()=>{ closeModal(); doShuffle(); }],['UNDO','blue',()=>{ closeModal(); undo(); }]]); return; }
@@ -307,6 +320,7 @@ function doShuffle(){
   const b=rects();
   R.st={ trays:res.state.trays.map(tr=>tr.map(l=>l.map(x=>x>=0?pools[x].pop():null))), bar:[] };
   if(res.addedTrays>0) layoutBoard();
+  R.chain=0; checkRows(true);
   render(false); playFlip(b); SND.whoosh(); $('.rs-hintb').classList.remove('need');
   toast(res.addedTrays>0 ? `Shuffled! +${res.addedTrays} bonus tray 🎁` : 'Shuffled! 🌀');
 }
@@ -321,22 +335,54 @@ let toastT; function toast(msg){ const t=$('.rs-toast'); t.innerHTML=msg; t.clas
 function showModal(html, buttons=[]){ const m=$('.rs-modal'); m.classList.remove('hidden'); const c=$('.rs-card'); c.innerHTML=html+(buttons.length?`<div class="row">${buttons.map((b,i)=>`<button class="rs-btn ${b[1]}" data-b="${i}">${b[0]}</button>`).join('')}</div>`:''); c.style.animation='none'; void c.offsetWidth; c.style.animation=''; $$('[data-b]', c).forEach(el=>el.onclick=()=>{ SND.click(); buttons[+el.dataset.b][2](); }); }
 function closeModal(){ R && $('.rs-modal').classList.add('hidden'); }
 
+/* ===================== SKILL BONUS (levels 7+) ===================== */
+function bonusRoomToday(){ const S=R.opts.S; const used=S && typeof S.rsBonusToday==='number' ? S.rsBonusToday : 0; return RS_BONUS_DAILY_CAP - used - R.bonus; }
+/** Earn a skill bonus during play. Held on the level and paid at level clear (see payStarfish). */
+function skillBonus(amount, label, x, y){
+  if(!R || !R.bonusOn) return;
+  if(R.opts.ECO && R.opts.S) R.opts.ECO.ensureDay(R.opts.S);
+  const today=bonusRoomToday(); const room=Math.min(RS_BONUS_LEVEL_CAP - R.bonus, today);
+  if(room<=0){ if(today<=0 && !R.maxShown){ R.maxShown=true; bonusPop(x, y, 'Max skill bonus today!', true); } return; }
+  const amt=Math.min(amount, room); R.bonus+=amt; bonusPop(x, y, `${label} +${amt}`); SND.chime();
+}
+function bonusPop(x, y, text, muted=false){ const d=document.createElement('div'); d.className='rs-float rs-bonuspop'+(muted?' max':''); d.innerHTML=`${muted?'':'<span class="rs-star"></span>'}${text}`; d.style.left=Math.max(90, Math.min(R.root.clientWidth-90, x))+'px'; d.style.top=Math.max(60, y)+'px'; $('.rs-fx').appendChild(d); setTimeout(()=>d.remove(),1500); }
+/** A whole visual row of trays emptied (with friends still left elsewhere) → +RS_ROW_CLEAR once per row.
+ *  quiet=true just marks already-empty rows (after a shuffle) without paying. */
+function checkRows(quiet=false){
+  if(!R || !R.bonusOn) return; const T=R.st.trays.length, cols=R.cols||3; const isEmpty=t=>{ const tr=R.st.trays[t]; return tr.length===1 && tr[0].every(o=>!o); };
+  for(let r0=0; r0<T; r0+=cols){ const row=[...Array(Math.min(cols, T-r0)).keys()].map(i=>r0+i); if(row.length<2 || !row.every(isEmpty) || row.every(t=>R.rowPaid.has(t))) continue;
+    row.forEach(t=>R.rowPaid.add(t)); if(quiet || left()===0) continue;
+    const el=$(`.rs-tray[data-t="${row[Math.floor(row.length/2)]}"]`); const b=el? el.getBoundingClientRect() : { left:R.root.clientWidth/2, width:0, top:R.root.clientHeight/2, height:0 };
+    skillBonus(RS_ROW_CLEAR, 'ROW CLEAR!', b.left+b.width/2, b.top+b.height/2); }
+}
+
 /* ===================== WIN + REWARD ===================== */
-function payStarfish(){
+function payStarfish(firstClear){
   const { ECO, S, save } = R.opts; if(!ECO || !S) return null;
   ECO.ensureDay(S);
-  const r=ECO.cardsEarn(S, REEF_SORT_STARFISH_PER_LEVEL); // shared economy rule (full → half after 3 activities/day)
-  S.coins+=r.earned; S.activitiesToday++; if(save) save();
-  return r;
+  const base = firstClear ? REEF_SORT_FIRST_CLEAR : REEF_SORT_REPLAY;
+  const r=ECO.cardsEarn(S, base); // shared economy rule (full → half after 3 activities/day, min 5)
+  S.coins+=r.earned;
+  if((R.P.clears||0) % REEF_SORT_LEVELS_PER_ACTIVITY === 0) S.activitiesToday++; // 1 activity per 3 Reef Sort clears
+  // skill bonus: separate from cardsEarn (never halved), clamped to what's left of today's cap
+  if(typeof S.rsBonusToday!=='number') S.rsBonusToday=0;
+  const bonus=Math.max(0, Math.min(R.bonus||0, RS_BONUS_DAILY_CAP - S.rsBonusToday));
+  S.coins+=bonus; S.rsBonusToday+=bonus;
+  if(save) save();
+  return { ...r, base, bonus, maxed: !!R.bonusOn && S.rsBonusToday>=RS_BONUS_DAILY_CAP };
 }
 function levelComplete(){
   const n=R.level; const ratio=R.sets? R.served/R.sets : 1; const stars= ratio>=.7 ? 3 : ratio>=.4 ? 2 : 1;
-  const pay=payStarfish();
-  const P=R.P; P.stars[n]=Math.max(P.stars[n]||0, stars); P.bestMoves[n]=Math.min(P.bestMoves[n]||Infinity, R.moves); P.unlocked=Math.max(P.unlocked, n+1); P.cur=n+1; P.clears=(P.clears||0)+1; storeSortSave(P);
+  const P=R.P; const firstClear = n<=LEVEL_COUNT && !P.stars[n];
+  P.clears=(P.clears||0)+1;
+  const pay=payStarfish(firstClear);
+  P.stars[n]=Math.max(P.stars[n]||0, stars); P.bestMoves[n]=Math.min(P.bestMoves[n]||Infinity, R.moves); P.unlocked=Math.max(P.unlocked, n+1); P.cur=n+1; storeSortSave(P);
   refreshCoins(); SND.win(); confetti(); later(()=>SND.cheer(7), 700);
   const hero = Object.entries(R.cleared).sort((a,b)=>b[1]-a[1])[0]; const hc=SORT_CHARS[hero? +hero[0] : R.chars[0]];
   const last = n===LEVEL_COUNT;
-  const payHtml = pay ? `<div class="rs-coinsum"><span class="rs-star"></span>+${pay.earned}${pay.full?'':' <small>(½ — Ollie is sleepy)</small>'}</div>` : '';
+  const payHtml = pay ? `<div class="rs-coinsum"><span class="rs-star"></span>+${pay.earned}${pay.full?'':' <small>(½ — Ollie is sleepy)</small>'}</div>`
+    + (pay.bonus>0 ? `<div class="rs-coinsum rs-skill"><span class="rs-star"></span>Skill bonus +${pay.bonus}</div>` : '')
+    + (pay.maxed ? `<p class="rs-maxed">Max skill bonus today!</p>` : '') : '';
   showModal(`<h2>${last?'REEF MASTER!':'LEVEL CLEAR!'}</h2><div class="rs-stars">${[1,2,3].map(i=>`<i class="${i<=stars?'on':''}" style="animation-delay:${.2+i*.18}s">★</i>`).join('')}</div>
     <div class="rs-hero" style="--cc:${hc.color}"><img src="${R.art(hc.id)}" alt="${hc.name}"></div>
     <p>${hc.name} says <b>THANK YOU!</b> 🎉</p><p>Orders served: ${R.served} / ${R.sets} · Moves: ${R.moves}</p>${payHtml}${last?'<p>You beat all 12 levels! Bonus reefs unlocked 🌊</p>':''}`,
