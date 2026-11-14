@@ -98,6 +98,15 @@ CHARS.forEach(c=>c.price = c.id==='ollie'?0:PRICE[c.r]*2);
 
 const SAMPLE_MAZE = [ ['OceanKing',12], ['BubbleBrawler',10], ['Finatic',8], ['CoralCrusher',6], ['DeepDiver99',4] ];
 const SAMPLE_RACE = [ ['OceanKing',38.2], ['BubbleBrawler',41.7], ['Finatic',45.0], ['CoralCrusher',49.3], ['DeepDiver99',55.8] ];
+/* Sample shop leaderboard looks — labeled as samples. Playable characters + existing ITEMS only. */
+const SAMPLE_LOOKS = [
+  { n:'OceanKing',      v:12, char:'oscar',   eq:{ hat:'crown_silver', eyes:'visor_fire', top:'jacket_denim', shoes:'sneak_pop' } },
+  { n:'BubbleBrawler',  v:10, char:'bubbles', eq:{ hat:'beanie_rainbow', eyes:'shades_heart', top:'tee_wave', bottom:'shorts_swim' } },
+  { n:'Finatic',        v:8,  char:'finn',    eq:{ hat:'cap_blue', eyes:'specs_round', top:'tee_white', shoes:'sneak_red' } },
+  { n:'CoralCrusher',   v:6,  char:'dash',    eq:{ eyes:'goggles_aqua', top:'jacket_lava', bottom:'shorts_swim', shoes:'sneak_pop' } },
+  { n:'DeepDiver99',    v:4,  char:'wade',    eq:{ hat:'beanie_leaf', eyes:'goggles_aqua', top:'tee_wave', wrist:'brace_shell' } },
+];
+
 
 /* ===================== SAVE ===================== */
 const SAVE_KEY = 'zkidz_save_v1';
@@ -364,12 +373,17 @@ function animateOllie(o, speed, dt, t){
 /* ===================== 3D ITEM THUMBNAILS ===================== */
 // Each accessory is rendered from its real in-game mesh (built on Ollie, body hidden) to a transparent PNG, cached per item.
 const THUMBS = {}; let thumbR=null, thumbScene=null;
+function ensureThumbR(){
+  if(thumbR) return;
+  thumbR=new THREE.WebGLRenderer({ antialias:true, alpha:true, preserveDrawingBuffer:true }); thumbR.setPixelRatio(1); thumbR.setSize(224,224); thumbR.setClearColor(0x000000,0);
+  thumbR.outputColorSpace=THREE.SRGBColorSpace; thumbR.toneMapping=THREE.LinearToneMapping; thumbR.toneMappingExposure=1.05;
+  thumbScene=new THREE.Scene(); thumbScene.add(new THREE.HemisphereLight(0xffffff,0x6a7aa8,1.5)); const d=new THREE.DirectionalLight(0xffffff,2.2); d.position.set(3,5,6); thumbScene.add(d); const f=new THREE.DirectionalLight(0x9fd8ff,.8); f.position.set(-4,2,-3); thumbScene.add(f);
+}
+function disposeThumbR(){ if(!thumbR) return; thumbR.dispose(); thumbR.forceContextLoss(); thumbR=null; thumbScene=null; }
 function itemThumb(it){
   if(THUMBS[it.id]!==undefined) return THUMBS[it.id];
   try{
-    if(!thumbR){ thumbR=new THREE.WebGLRenderer({ antialias:true, alpha:true, preserveDrawingBuffer:true }); thumbR.setPixelRatio(1); thumbR.setSize(224,224); thumbR.setClearColor(0x000000,0);
-      thumbR.outputColorSpace=THREE.SRGBColorSpace; thumbR.toneMapping=THREE.LinearToneMapping; thumbR.toneMappingExposure=1.05;
-      thumbScene=new THREE.Scene(); thumbScene.add(new THREE.HemisphereLight(0xffffff,0x6a7aa8,1.5)); const d=new THREE.DirectionalLight(0xffffff,2.2); d.position.set(3,5,6); thumbScene.add(d); const f=new THREE.DirectionalLight(0x9fd8ff,.8); f.position.set(-4,2,-3); thumbScene.add(f); }
+    ensureThumbR(); thumbR.setSize(224,224);
     const o=buildOllie({ charId:'ollie', equipped:{ [it.slot]:it.id } }); o.updateMatrixWorld(true);
     const P=o.userData.parts, mannequin = (it.slot==='top'||it.slot==='bottom') ? new Set([P.body, P['arm-1'], P.arm1]) : null; const manMat=new THREE.MeshStandardMaterial({ color:0xe9eef8, roughness:.8, transparent:true, opacity:.42, depthWrite:false });
     const box=new THREE.Box3(); o.traverse(m=>{ if(!m.isMesh) return; if(m.userData.base){ if(mannequin && mannequin.has(m)){ m.material=manMat; m.renderOrder=-1; return; } m.layers.set(1); return; } m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox.clone().applyMatrix4(m.matrixWorld)); });
@@ -381,7 +395,27 @@ function itemThumb(it){
   }catch(e){ console.warn('thumb failed', it.id, e); THUMBS[it.id]=null; }
   return THUMBS[it.id];
 }
-function warmThumbs(){ for(const it of ITEMS) itemThumb(it); RARITIES.forEach(R=>{ const i=new Image(); i.src=artUrl('chest-'+R.id); }); if(thumbR){ thumbR.dispose(); thumbR.forceContextLoss(); thumbR=null; } }
+function lookKey(charId, eq){ return (charId||'ollie')+'|'+Object.keys(eq||{}).sort().map(s=>s+':'+(eq[s]||'')).join(','); }
+const LOOK_THUMBS = {};
+function lookThumb(charId, eq){
+  const key=lookKey(charId, eq); if(LOOK_THUMBS[key]!==undefined) return LOOK_THUMBS[key];
+  try{
+    ensureThumbR(); thumbR.setSize(224,224);
+    const o=buildOllie({ charId: charId||'ollie', equipped: eq||{} }); o.updateMatrixWorld(true);
+    const box=new THREE.Box3().setFromObject(o);
+    if(box.isEmpty()){ LOOK_THUMBS[key]=null; return null; }
+    thumbScene.add(o);
+    const c=box.getCenter(new THREE.Vector3()), sz=box.getSize(new THREE.Vector3());
+    const r=Math.max(sz.x,sz.y,sz.z)*.52+.04;
+    const cam=new THREE.PerspectiveCamera(28,1,.01,50); const dir=new THREE.Vector3(.45,.28,1).normalize();
+    cam.position.copy(c).addScaledVector(dir, r/Math.sin(THREE.MathUtils.degToRad(14))); cam.lookAt(c.x, c.y+sz.y*.04, c.z);
+    thumbR.render(thumbScene, cam); LOOK_THUMBS[key]=thumbR.domElement.toDataURL('image/png');
+    thumbScene.remove(o); o.traverse(m=>{ if(m.isMesh){ if(!m.geometry.userData.shared && !Object.values(ollieGeos()).includes(m.geometry)) m.geometry.dispose(); } });
+  }catch(e){ console.warn('look thumb failed', charId, e); LOOK_THUMBS[key]=null; }
+  return LOOK_THUMBS[key];
+}
+function warmLookThumbs(rows){ for(const r of rows) lookThumb(r.char, r.eq); disposeThumbR(); }
+function warmThumbs(){ ensureThumbR(); for(const it of ITEMS) itemThumb(it); RARITIES.forEach(R=>{ const i=new Image(); i.src=artUrl('chest-'+R.id); }); disposeThumbR(); }
 
 /* ===================== RARITY FILTER CHIPS ===================== */
 function effFilter(key, list){ const f=(S.filters||{})[key]||'all'; return f==='all'||list.some(x=>x.r===f)? f : 'all'; }
@@ -465,9 +499,16 @@ const lobby = { scene:new THREE.Scene(), ollie:null, t:0 };
   const rays=godRays(11, 9); rays.position.set(0,0,-5); rays.userData.isRays=true; sc.add(rays); lobby.rays=rays;
   lobby.bubbles=makeBubbles(sc,70,10,10); specks(sc,250,14,9);
 })();
-function setLobbyOllie(){ if(lobby.ollie) lobby.scene.remove(lobby.ollie); lobby.ollie=buildOllie(); const shop=viewOffsetMode==='shop'; lobby.ollie.userData.baseY=shop?.28:.52; lobby.ollie.position.y=lobby.ollie.userData.baseY; lobby.ollie.scale.setScalar(shop?1.25:1.6); lobby.scene.add(lobby.ollie); }
+function setLobbyOllie(){ if(lobby.ollie) lobby.scene.remove(lobby.ollie);
+  const shop=viewOffsetMode==='shop';
+  const opts = shop ? { charId:shopChar(), equipped:shopEq() } : {};
+  lobby.ollie=buildOllie(opts);
+  lobby.ollie.userData.baseY=shop?.18:.52; lobby.ollie.position.y=lobby.ollie.userData.baseY; lobby.ollie.scale.setScalar(shop?1.12:1.6); lobby.scene.add(lobby.ollie); }
 let viewOffsetMode=null;
-function updateViewOffset(){ const w=innerWidth,h=innerHeight; if(viewOffsetMode==='closet') camera.setViewOffset(w,h,w*.3,0,w,h); else if(viewOffsetMode==='shop') camera.setViewOffset(w,h,w*.26,h*.04,w,h); else camera.clearViewOffset(); }
+let shopTryOn=null; // {kind:'item',id} | {kind:'char',id} | {kind:'look',name,char,eq}
+function shopChar(){ if(shopTryOn && shopTryOn.kind==='char' && isPlayable(shopTryOn.id)) return shopTryOn.id; return S.selChar; }
+function shopEq(){ if(shopTryOn && shopTryOn.kind==='look') return { ...(shopTryOn.eq||{}) }; const eq={ ...(S.equipped||{}) }; if(shopTryOn && shopTryOn.kind==='item'){ const it=IMAP[shopTryOn.id]; if(it) eq[it.slot]=it.id; } return eq; }
+function updateViewOffset(){ const w=innerWidth,h=innerHeight; if(viewOffsetMode==='closet') camera.setViewOffset(w,h,w*.3,0,w,h); else if(viewOffsetMode==='shop'){ const left=w>=900 && h>430 ? (w>=1100 && h>=640?0.24:0.25) : 0.22; camera.setViewOffset(w,h,w*(0.50-left*0.48),h*.08,w,h); } else camera.clearViewOffset(); }
 
 /* ===================== GAME STATE ===================== */
 const G = { mode:null, scene:null, player:null, yaw:0, pitch:.9, camDist:9.5, vel:new THREE.Vector3(), coins:[], collected:0, time:0, running:false, paused:false, dashT:0, dashCd:0, jellies:[], weeds:[] };
@@ -811,7 +852,7 @@ $('#profileBtn').onclick=()=>{ const n=prompt('Your player name:', S.name); if(n
 $$('[data-open]').forEach(b=>b.onclick=()=>{ SFX.click(); openPanel(b.dataset.open); });
 $('#panelBack').onclick=()=>{ SFX.click(); closePanel(); };
 let panelState={};
-function closePanel(){ viewOffsetMode=null; updateViewOffset(); $('#panel').classList.remove('closet','shop'); active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); }
+function closePanel(){ shopTryOn=null; viewOffsetMode=null; updateViewOffset(); $('#panel').classList.remove('closet','shop'); active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); }
 function openPanel(which, sub){ panelState.which=which; if(sub) panelState.sub=sub; showScreen('panel'); const P=$('#panel'); P.classList.toggle('closet', which==='closet'); P.classList.toggle('shop', which==='shop'); viewOffsetMode = (which==='closet'||which==='shop')?which:null; updateViewOffset(); active = (which==='closet'||which==='shop')?'lobby':'none'; if(which==='closet'||which==='shop') setLobbyOllie();
   $('#panelTitle').innerHTML = {shop:`<span class="shop-stand mini" aria-hidden="true">${SHOP_STAND}</span>SHOP`,characters:'CHARACTERS',closet:'CLOSET',leaderboard:'LEADERBOARD',chests:'CHESTS'}[which];
   ({shop:renderShop,characters:renderChars,closet:renderCloset,leaderboard:renderLB,chests:renderChests})[which](); refreshCoins(); }
@@ -819,18 +860,78 @@ function tabs(list, cur, cb){ return `<div class="tabs">${list.map(([k,l])=>`<bu
 function bindTabs(cb){ $$('#panelBody [data-tab]').forEach(b=>b.onclick=()=>{ SFX.click(); cb(b.dataset.tab); }); }
 function itemCard(it, priceHtml, extraCls=''){ const R=RMAP[it.r]; const bg = it.r==='cosmic'?'linear-gradient(160deg,#3a1a8a,#1a7fbf,#a03aa8)':`linear-gradient(160deg,${R.color},${shade(R.color)})`; return `<div class="item ${extraCls}" data-id="${it.id}" style="background:${bg}">${rarityBadge(it.r)}${iconHtml(it)}<div class="nm">${it.name}</div>${priceHtml}</div>`; }
 function shade(hex){ const c=new THREE.Color(hex).multiplyScalar(.55); return '#'+c.getHexString(); }
+function todaysPicks(){
+  const day=(ECO.todayStr&&ECO.todayStr())||''; let h=2166136261; for(let i=0;i<day.length;i++) h=Math.imul(h^day.charCodeAt(i),16777619);
+  const pool=ITEMS.filter(i=>i.r!=='legendary'&&i.r!=='cosmic'); const out=[], used=new Set();
+  for(let i=0;i<pool.length && out.length<3;i++){ const it=pool[Math.abs(h+i*7)%pool.length]; if(used.has(it.id)||used.has(it.slot)) continue; used.add(it.id); used.add(it.slot); out.push(it); }
+  return out;
+}
+function shopRows(){
+  const rows=SAMPLE_LOOKS.map(r=>({ ...r, sample:true }));
+  if(S.bestLevel>0) rows.push({ n:S.name, v:S.bestLevel, char:S.selChar||'ollie', eq:{ ...(S.equipped||{}) }, me:true });
+  rows.sort((a,b)=>b.v-a.v); return rows;
+}
 function renderShop(){ const sub=panelState.shopTab||'clothes'; const body=$('#panelBody');
-  const selAll = sub==='characters'? CHARS : ITEMS.filter(i=> sub==='eyewear'? i.slot==='eyes' : i.slot!=='eyes'); const sel=applyFilter('shop', selAll); const ownFn = sub==='characters'? (c=>S.chars.includes(c.id)) : (i=>S.owned.includes(i.id));
+  const look = shopTryOn && shopTryOn.kind==='look' ? shopTryOn : null;
+  const selAll = sub==='characters'? CHARS : ITEMS.filter(i=> sub==='eyewear'? i.slot==='eyes' : i.slot!=='eyes');
+  const lookIds = look ? Object.values(look.eq||{}) : null;
+  const sel = lookIds ? ITEMS.filter(i=>lookIds.includes(i.id)) : applyFilter('shop', selAll);
+  const ownFn = sub==='characters'? (c=>S.chars.includes(c.id)) : (i=>S.owned.includes(i.id));
   const cats=[['characters','🐧','CHARACTERS'],['clothes','👕','CLOTHES'],['eyewear','🕶️','EYEWEAR'],['chests','🎁','CHESTS']];
-  const lbRows=[...SAMPLE_MAZE.map(([n,v],i)=>({n,v,a:['sharkie','squirt','angie','lulu','wade'][i]}))]; if(S.bestLevel>0) lbRows.push({n:S.name,v:S.bestLevel,a:'ollie',me:true}); lbRows.sort((a,b)=>b.v-a.v);
-  body.innerHTML = `<div class="shop-layout"><div class="cats">${cats.map(([k,ic,l])=>`<button class="cat ${k===sub?'sel':''}" data-tab="${k}"><span>${ic}</span>${l}</button>`).join('')}</div><div class="shop-main">` + (sub==='chests'? '' : filterChips('shop', selAll, ownFn) + `<div class="grid">${sel.map(it=>{
-    const owned = sub==='characters'? S.chars.includes(it.id) : S.owned.includes(it.id); const chestOnly = it.r==='legendary'||it.r==='cosmic';
-    const ph = owned? '<div class="price owned">OWNED</div>' : chestOnly? '<div class="price locked">🎁 Chest only</div>' : `<div class="price">${STAR} ${it.price}</div>`;
-    return itemCard(it, ph, owned?'':(chestOnly?'lock':'')); }).join('')}</div><p class="note">${sub==='characters'?'Characters you unlock join your collection. Pick a ready friend in Characters to play as them!':'Legendary & Cosmic items only come from chests!'}</p>`) + `</div><div class="mini-lb"><div class="mlb-title">🏆 LEADERBOARD</div>${lbRows.slice(0,5).map((r,i)=>`<div class="mlb-row ${r.me?'me':''}"><b>${i+1}.</b><img src="${artUrl(r.a)}" alt=""><div><div class="mlb-n">${r.n}</div><div class="mlb-v">Level ${r.v}${r.me?'':' <i>(sample)</i>'}</div></div></div>`).join('')}</div></div>`;
-  bindTabs(k=>{ if(k==='chests'){ openPanel('chests'); return; } panelState.shopTab=k; renderShop(); }); bindChips('shop', renderShop);
-  $$('#panelBody .item').forEach(el=>el.onclick=()=>{ const id=el.dataset.id; const it=sub==='characters'?CMAP[id]:IMAP[id]; const owned= sub==='characters'?S.chars.includes(id):S.owned.includes(id); if(owned){ toast(sub==='characters'?'Already in your collection!':'Owned! Equip it in the Closet 👕'); return; } if(it.r==='legendary'||it.r==='cosmic'){ toast('Find this in a chest! 🎁'); return; }
+  const lbRows=shopRows(); warmLookThumbs(lbRows);
+  const selId = shopTryOn && (shopTryOn.kind==='item'||shopTryOn.kind==='char') ? shopTryOn.id : null;
+  const card=(it)=>{
+    const isChar=!it.slot; const owned=isChar? S.chars.includes(it.id) : S.owned.includes(it.id);
+    const equipped=!isChar && S.equipped[it.slot]===it.id; const chestOnly=!isChar && (it.r==='legendary'||it.r==='cosmic');
+    const selected = lookIds ? lookIds.includes(it.id) : selId===it.id;
+    const ph = owned? (equipped?'<div class="price owned">EQUIPPED</div>': '<div class="price owned">OWNED</div>') : chestOnly? '<div class="price locked">🎁 Chest only</div>' : `<div class="price">${STAR} ${it.price}</div>`;
+    const buy = (!owned && !chestOnly) ? `<button class="btn small buy-btn" data-buy="${it.id}">BUY</button>` : '';
+    return itemCard(it, `<div class="buy-row">${ph}${buy}</div>`, (owned?'':'')+(chestOnly?' lock':'')+(selected?' sel':'')+(equipped?' eq':''));
+  };
+  const picks = (!look && sub!=='characters') ? todaysPicks() : [];
+  const lookBar = look ? `<div class="look-banner"><div class="look-name">${look.name}'s look</div><div class="look-items">${Object.values(look.eq||{}).map(id=>{ const it=IMAP[id]; if(!it) return ''; const u=itemThumb(it); return `<button class="look-chip" data-id="${it.id}">${u?`<img src="${u}" alt="">`:it.em}${it.name}</button>`; }).join('')}</div><button class="btn small gray look-x" id="lookClear" aria-label="Clear look">✕</button></div>` : '';
+  const feat = picks.length ? `<div class="featured"><div class="featured-h">⭐ TODAY'S PICKS</div><div class="featured-track">${picks.map(card).join('')}</div></div>` : '';
+  const grid = (sub==='chests'||look)? '' : filterChips('shop', selAll, ownFn).replace('class="chips"','class="chips one-line"');
+  const note = sub==='characters'?'Characters you unlock join your collection. Pick a ready friend in Characters to play as them!':'Tap an item to try it on. Legendary & Cosmic items only come from chests!';
+  body.innerHTML = `<div class="shop-layout"><div class="shop-main"><div class="shop-cats cats">${cats.map(([k,ic,l])=>`<button class="cat ${k===sub?'sel':''}" data-tab="${k}"><span>${ic}</span>${l}</button>`).join('')}</div>${lookBar}${sub==='chests'?'':grid}${feat}<div class="shop-grid-wrap"><div class="grid">${sel.map(card).join('')}</div><p class="note shop-note">${look?`Items from ${look.name}'s outfit. Tap one to try it on!` : note}</p></div></div><div class="mini-lb" id="shopLooks"><div class="mlb-title">🏆 TOP DIVERS</div><div class="mlb-sub">Peek at their outfits!</div>${lbRows.slice(0,5).map((r,i)=>{ const src=lookThumb(r.char,r.eq); const on=look && look.name===r.n && !r.me; return `<button class="mlb-row ${r.me?'me':''} ${on?'on':''}" data-look="${i}" type="button"><b>${i+1}</b>${src?`<span class="mlb-look"><img src="${src}" alt=""></span>`:`<span class="mlb-look"></span>`}<div><div class="mlb-n">${r.n}</div><div class="mlb-v">Lv ${r.v}${r.me?'': ' <i>sample</i>'}</div></div></button>`; }).join('')}</div></div>`;
+
+  bindTabs(k=>{ if(k==='chests'){ shopTryOn=null; openPanel('chests'); return; } panelState.shopTab=k; if(shopTryOn && shopTryOn.kind==='look') shopTryOn=null; renderShop(); });
+  bindChips('shop', renderShop);
+  $$('#panelBody .chips.one-line, #panelBody .featured-track, #panelBody .mini-lb').forEach(hScroll);
+
+  const buyItem=(id)=>{
+    const isChar=sub==='characters' && !!CMAP[id]; const it=isChar?CMAP[id]:IMAP[id]; if(!it) return;
+    const owned=isChar?S.chars.includes(id):S.owned.includes(id); if(owned){ toast(isChar?'Already in your collection!':'Owned! Equip it in the Closet 👕'); return; }
+    if(!isChar && (it.r==='legendary'||it.r==='cosmic')){ toast('Find this in a chest! 🎁'); return; }
     if(S.coins<it.price){ SFX.miss(); toast(`Need ${it.price-S.coins} more starfish ${STAR}`); return; }
-    showModal(`<h2>BUY?</h2><div class="prize">${iconHtml(it)}<div class="big">${it.name}</div></div><p>for ${STAR} ${it.price}</p>`, [['BUY!','green',()=>{ S.coins-=it.price; (sub==='characters'?S.chars:S.owned).push(id); if(sub!=='characters'){ S.equipped[it.slot]=id; } save(); SFX.chest(1); confetti(RMAP[it.r].color); hideModal(); toast(sub==='characters'?`${it.name} joined your crew!`:`${it.name} equipped!`); renderShop(); }],['NO','gray',hideModal]]); }); }
+    showModal(`<h2>BUY?</h2><div class="prize">${iconHtml(it)}<div class="big">${it.name}</div></div><p>for ${STAR} ${it.price}</p>`, [['BUY!','green',()=>{ S.coins-=it.price; (isChar?S.chars:S.owned).push(id); if(!isChar){ S.equipped[it.slot]=id; } if(isChar && isPlayable(id) && !S.selChar){ S.selChar=id; } save(); SFX.chest(1); confetti(RMAP[it.r].color); hideModal(); toast(isChar?`${it.name} joined your crew!`:`${it.name} equipped!`); shopTryOn=isChar?{kind:'char',id}:{kind:'item',id}; renderShop(); setLobbyOllie(); }],['NO','gray',hideModal]]);
+  };
+  const tryOn=(id)=>{
+    const isChar = !!CMAP[id] && (sub==='characters' || !IMAP[id]);
+    const it=isChar?CMAP[id]:IMAP[id]; if(!it) return;
+    SFX.click();
+    shopTryOn = isChar ? { kind:'char', id } : { kind:'item', id };
+    setLobbyOllie();
+    $$('#panelBody .item').forEach(el=>el.classList.toggle('sel', el.dataset.id===id));
+    $$('#panelBody .mlb-row').forEach(el=>el.classList.remove('on'));
+  };
+  $$('#panelBody .item').forEach(el=>el.onclick=e=>{
+    const buyBtn=e.target.closest('[data-buy]'); const id=(buyBtn?buyBtn.dataset.buy:null)||el.dataset.id;
+    if(buyBtn){ e.preventDefault(); e.stopPropagation(); buyItem(id); return; }
+    tryOn(id);
+  });
+  $$('#panelBody .look-chip').forEach(b=>b.onclick=e=>{ e.stopPropagation(); tryOn(b.dataset.id); });
+  $('#lookClear')&&($('#lookClear').onclick=()=>{ shopTryOn=null; setLobbyOllie(); renderShop(); });
+  $$('#panelBody .mlb-row').forEach(el=>el.onclick=()=>{
+    const r=lbRows[el.dataset.look|0]; if(!r||r.me){ if(r&&r.me){ shopTryOn=null; setLobbyOllie(); renderShop(); toast('That is your look!'); } return; }
+    SFX.click();
+    shopTryOn={ kind:'look', name:r.n, char:r.char, eq:{ ...r.eq } };
+    panelState.shopTab='clothes';
+    setLobbyOllie();
+    renderShop();
+    toast(`Trying on ${r.n}'s look — tap Shop items to browse them!`);
+  }); }
+
 function renderChars(){ const body=$('#panelBody'); const list=applyFilter('chars', CHARS); body.innerHTML = filterChips('chars', CHARS, c=>S.chars.includes(c.id)) + `<p class="note">Tap an unlocked friend to play as them in the lobby, Maze, and Race! Dash, Finn, Bubbles, Oscar, Wade, and Ollie are ready — more 3D models are on the way.</p><div class="grid">${list.map(c=>{ const own=S.chars.includes(c.id); const ph= c.id===S.selChar?'<div class="price owned">⭐ SELECTED</div>' : own?'<div class="price owned">UNLOCKED</div>':'<div class="price locked">🔒 LOCKED</div>'; return itemCard(c, ph, (own?'':'lock')+(c.id===S.selChar?' eq':'')); }).join('')}</div>`;
   bindChips('chars', renderChars);
   $$('#panelBody .item').forEach(el=>el.onclick=()=>{ const id=el.dataset.id; if(!S.chars.includes(id)){ toast('Unlock in the Shop or from chests!'); return; } if(!isPlayable(id)){ S.favChar=id; save(); SFX.click(); toast(`${CMAP[id].name}: 3D model coming soon!`); return; } S.selChar=id; save(); SFX.click(); setLobbyOllie(); renderChars(); toast(`${CMAP[id].name.split(' the ')[0]} is ready to play!`); }); }
@@ -911,4 +1012,4 @@ $('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quit
 /* ===================== INIT ===================== */
 resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
-window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie };
+window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb };
