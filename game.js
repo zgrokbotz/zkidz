@@ -394,7 +394,7 @@ const keys = {};
 const joy = { x:0, y:0, active:false, id:null };
 
 function disposeScene(sc){ if(!sc) return; sc.traverse(o=>{ if(o.geometry && !o.geometry.userData.shared && ![STARFISH_GEO,STAR_DOT_GEO,STAR_EYE_GEO,STAR_SMILE_GEO].includes(o.geometry)) o.geometry.dispose(); }); }
-function baseGameScene(){ disposeScene(G.scene); const sc=new THREE.Scene(); sc.background=gradientBg('#5fd0ff','#0b56a8'); sc.fog=new THREE.Fog(0x2489d4, 16, 62); G.sun=addLights(sc); G.scene=sc; G.rays=null; G.coins=[]; G.jellies=[]; G.weeds=[]; G.collected=0; G.time=0; G.dashT=0; G.dashCd=0; G.vel.set(0,0,0); return sc; }
+function baseGameScene(){ disposeScene(G.scene); const sc=new THREE.Scene(); sc.background=gradientBg('#5fd0ff','#0b56a8'); sc.fog=new THREE.Fog(0x2489d4, 16, 62); G.sun=addLights(sc); G.scene=sc; G.rays=null; G.coins=[]; G.jellies=[]; G.weeds=[]; G.collected=0; G.time=0; G.dashT=0; G.dashCd=0; G.vel.set(0,0,0); G.hitCd=0; G.guide=null; G.exitDist=null; G.lostHelp=false; G.wrongT=0; G.wrongShown=false; return sc; }
 function spawnPlayer(x,z,yaw){ G.player=buildOllie(); G.player.position.set(x,0,z); G.player.rotation.y=yaw; G.yaw=yaw; G.pitch=.9; G.scene.add(G.player); }
 
 /* ---------- MAZE ---------- */
@@ -411,10 +411,12 @@ function genMaze(n){
   while(q.length){ const [x,y]=q.shift(); for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const a=x+dx,b=y+dy; if(grid[a][b]===0&&dist[a][b]<0){ dist[a][b]=dist[x][y]+1; q.push([a,b]); if(a%2&&b%2&&dist[a][b]>dist[far[0]][far[1]]) far=[a,b]; } } }
   return { grid, T, dist, exit:far };
 }
+// Zinigames: gentler growth (5,6,8,9,11,12,14,15,17,18,20,21…) instead of +2 cells per level; old curve was 3+level*2.
+function mazeSize(level){ return Math.min(21, 5 + Math.floor((Math.max(1,level)-1)*1.5)); }
 function tileToWorld(i,j,T){ return new THREE.Vector3((i-T/2+.5)*TILE, 0, (j-T/2+.5)*TILE); }
 function startMaze(level){
   const sc=baseGameScene(); G.mode='maze'; G.level=level; const low=isLow(); const dens=low?.55:1;
-  const n=Math.min(3+level*2, 21); const mz=genMaze(n); G.maze=mz; const {grid,T}=mz;
+  const n=mazeSize(level); const mz=genMaze(n); G.maze=mz; const {grid,T}=mz;
   const half=T*TILE/2;
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(T*TILE+90,T*TILE+90), sandMaterial(Math.round((T*TILE+90)/7))); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; sc.add(floor);
   const pal = level%3===1 ? CORAL_PAL.pinkPurple : level%3===2 ? CORAL_PAL.warm : CORAL_PAL.cool;
@@ -445,10 +447,18 @@ function startMaze(level){
   const nJ=Math.max(0,Math.min(8,level-2)); for(let k=0;k<nJ;k++){ const [i,j]=pick(paths.filter(([a,b])=>mz.dist[a][b]>6)); const jf=makeJelly(); const p=tileToWorld(i,j,T); jf.position.set(p.x,1.1,p.z); const horiz = !grid[i+1][j]||!grid[i-1][j]; jf.userData.dir = horiz? new THREE.Vector3(1,0,0):new THREE.Vector3(0,0,1); jf.userData.ph=rand(0,6); sc.add(jf); G.jellies.push(jf);} 
   G.bubbles=makeBubbles(sc,low?70:150,half+6,12); specks(sc, low?150:400, half+8, 9);
   const s=tileToWorld(1,1,T); let yaw=0; if(!grid[2][1]) yaw=Math.PI/2; else yaw=0; spawnPlayer(s.x,s.z,yaw);
-  G.spawn=s.clone();
+  G.spawn=s.clone(); G.exitDist=bfsFrom(grid,T,mz.exit); G.guide=makeGuideArrow(); sc.add(G.guide); G.lostHelp=false;
   setupMinimap();
   beginRun(`LEVEL ${level}`);
 }
+// Zinigames: BFS distances from a tile (used to point the 'lost helper' arrow along the real path to the chest)
+function bfsFrom(grid,T,[sx,sy]){ const d=Array.from({length:T},()=>Array(T).fill(-1)); const q=[[sx,sy]]; d[sx][sy]=0; for(let h=0;h<q.length;h++){ const [x,y]=q[h]; for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const a=x+dx,b=y+dy; if(a>=0&&b>=0&&a<T&&b<T&&grid[a][b]===0&&d[a][b]<0){ d[a][b]=d[x][y]+1; q.push([a,b]); } } } return d; }
+// Zinigames: chunky golden ground arrow that circles Ollie and points where to go (maze helper + race checkpoints)
+function makeGuideArrow(){ const s=new THREE.Shape(); s.moveTo(0,.75); s.lineTo(.55,.1); s.lineTo(.22,.1); s.lineTo(.22,-.55); s.lineTo(-.22,-.55); s.lineTo(-.22,.1); s.lineTo(-.55,.1); s.closePath();
+  const geo=new THREE.ExtrudeGeometry(s,{depth:.12,bevelEnabled:true,bevelSize:.05,bevelThickness:.04,bevelSegments:1}); geo.rotateX(-Math.PI/2); geo.rotateY(Math.PI);
+  const m=new THREE.Mesh(geo, mat(0xffd52e,{emissive:0xffa000,ei:.7})); m.scale.setScalar(1.1); const g=new THREE.Group(); g.add(m); g.visible=false; g.userData.vis=0; return g; }
+function updateGuide(P, tx, tz, show, t, dt){ const g=G.guide; if(!g) return; g.userData.vis += ((show?1:0)-g.userData.vis)*Math.min(1,dt*6); g.visible=g.userData.vis>.03; if(!g.visible) return;
+  const a=Math.atan2(tx-P.position.x, tz-P.position.z), r=1.8+Math.sin(t*6)*.12; g.position.set(P.position.x+Math.sin(a)*r, .12, P.position.z+Math.cos(a)*r); g.rotation.y=a; g.scale.setScalar(g.userData.vis); }
 function makeJelly(){ const g=new THREE.Group(); const c=pick([0xff8fd8,0xb98cff,0x7fe8ff]); const bell=new THREE.Mesh(new THREE.SphereGeometry(.45,18,12,0,Math.PI*2,0,Math.PI/2), mat(c,{opacity:.75,emissive:c,ei:.3})); g.add(bell); for(let i=0;i<5;i++){ const t=new THREE.Mesh(new THREE.CapsuleGeometry(.04,.5,3,5), mat(c,{opacity:.7})); const a=i/5*Math.PI*2; t.position.set(Math.cos(a)*.25,-.3,Math.sin(a)*.25); g.add(t);} for(const s of [-1,1]){ const e=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6), mat(0x111111)); e.position.set(.15*s,.18,.4); g.add(e);} return g; }
 function isWall(x,z){ const mz=G.maze; if(!mz) return false; const i=Math.floor(x/TILE+mz.T/2), j=Math.floor(z/TILE+mz.T/2); if(i<0||j<0||i>=mz.T||j>=mz.T) return true; return mz.grid[i][j]===1; }
 function collideMaze(p, r){
@@ -483,7 +493,7 @@ function startRace(){
     const ring=new THREE.Mesh(new THREE.TorusGeometry(2.8,.22,14,48), mat(0xffd52e,{emissive:0xffa000,ei:.6,opacity:.9})); ring.position.set(p.x,2.4,p.z); ring.rotation.y=Math.atan2(tan.x,tan.z); sc.add(ring);
     if(i===NCP){ const flag=new THREE.Mesh(new THREE.PlaneGeometry(6,1), new THREE.MeshBasicMaterial({map:checkerTex(),side:THREE.DoubleSide})); flag.position.set(p.x,5.4,p.z); flag.rotation.y=ring.rotation.y; sc.add(flag); }
     G.cps.push({p, ring}); }
-  G.cpIdx=0; G.lap=1;
+  G.cpIdx=0; G.lap=1; G.guide=makeGuideArrow(); sc.add(G.guide); G.wrongT=0;
   for(let i=0;i<48;i++){ const t=(i+.5)/48*Math.PI*2; const off=rand(-.12,.12); const c=makeCoin(); c.position.set(Math.cos(t)*RA*(1+off),.8,Math.sin(t)*RB*(1+off)); c.userData.ph=i*.3; sc.add(c); G.coins.push(c);} 
   G.bubbles=makeBubbles(sc,low?70:150,40,12); specks(sc, low?150:400, 45, 9);
   spawnPlayer(RA,0,0); G.spawn=new THREE.Vector3(RA,0,0);
@@ -634,17 +644,26 @@ function updateGame(dt, t){
     for(const c of G.coins){ if(!c.visible) continue; if(Math.hypot(c.position.x-P.position.x,c.position.z-P.position.z)<1){ c.visible=false; G.collected++; SFX.coin(); spawnSparkles(G.scene,c.position,0xffb347,14); hudCount(); if(G.collected===bagCap()) toast('Starfish bag full! 🎒 Extra ones are just for fun ✨'); updateInfo(); } }
     if(G.mode==='maze'){
       if(G.chest && P.position.distanceTo(G.chest.position)<1.6){ spawnSparkles(G.scene,G.chest.position.clone().setY(1),0xffd52e,30); finishMaze(); }
-      for(const j of G.jellies){ if(Math.hypot(j.position.x-P.position.x,j.position.z-P.position.z)<.9 && !(G.hitCd>0)){ G.hitCd=1.2; SFX.bump(); const push=tmpV.subVectors(P.position,j.position).setY(0).normalize().multiplyScalar(6); G.vel.copy(push); if(G.collected>0){ G.collected--; hudCount(); } toast('Ouch! A jelly bumped you 🪼 (-1 starfish)'); } }
+      for(const j of G.jellies){ if(Math.hypot(j.position.x-P.position.x,j.position.z-P.position.z)<.9 && !(G.hitCd>0)){ G.hitCd=1.2; SFX.bump(); const push=tmpV.subVectors(P.position,j.position).setY(0).normalize().multiplyScalar(6); G.vel.copy(push); if(G.collected>0){ G.collected--; hudCount(); updateInfo(); const back=G.coins.find(c=>!c.visible); if(back){ back.visible=true; spawnSparkles(G.scene,back.position,0xffb347,10); } } toast('Ouch! A jelly bumped you 🪼 – your starfish swam back, go grab it!'); } }
+      // lost helper: after 40s a golden arrow points along the real path to the chest
+      if(!G.lostHelp && G.time>40){ G.lostHelp=true; toast('Lost? Follow the golden arrow! ✨'); }
+      if(G.lostHelp && G.exitDist){ const T=G.maze.T, i=Math.floor(P.position.x/TILE+T/2), j=Math.floor(P.position.z/TILE+T/2); let bi=i,bj=j; for(let step=0;step<2;step++){ const cur=G.exitDist[bi]?.[bj]; if(!(cur>0)) break; for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ if(G.exitDist[bi+dx]?.[bj+dy]===cur-1){ bi+=dx; bj+=dy; break; } } }
+        const w=tileToWorld(bi,bj,T); updateGuide(P, w.x, w.z, (bi!==i||bj!==j), t, dt); }
       G.hitCd=Math.max(0,(G.hitCd||0)-dt);
     } else {
       const cp=G.cps[G.cpIdx]; if(cp && Math.hypot(cp.p.x-P.position.x,cp.p.z-P.position.z)<4.2){ SFX.check(); spawnSparkles(G.scene,cp.ring.position,0xffd52e,16); G.cpIdx++;
-        if(G.cpIdx>=NCP){ if(G.lap>=LAPS){ finishRace(); } else { G.lap++; G.cpIdx=0; centerMsg('LAP '+G.lap+'!'); setTimeout(()=>centerMsg(''),900); $('#hudLevel').textContent=`${G.lap}/${LAPS}`; } } updateInfo(); }
+        if(G.cpIdx>=NCP){ if(G.lap>=LAPS){ finishRace(); } else { G.lap++; G.cpIdx=0; SFX.match(); centerMsg(G.lap===LAPS?'LAST LAP!':'LAP '+G.lap+'!'); setTimeout(()=>centerMsg(''),900); $('#hudLevel').textContent=`${G.lap}/${LAPS}`; } } updateInfo(); }
+      // Zinigames: arrow to the next ring; 'WRONG WAY' if swimming away from it for a moment
+      const nc=G.cps[G.cpIdx]; if(nc){ const tx=nc.p.x-P.position.x, tz=nc.p.z-P.position.z, tl=Math.hypot(tx,tz)||1; const away = speed>2 && (G.vel.x*tx+G.vel.z*tz)/(speed*tl) < -.35;
+        G.wrongT = away ? G.wrongT+dt : Math.max(0,G.wrongT-dt*2); if(G.wrongT>1 && !G.wrongShown){ G.wrongShown=true; centerMsg('WRONG WAY! ↩'); SFX.miss(); } if(G.wrongT===0 && G.wrongShown){ G.wrongShown=false; centerMsg(''); }
+        updateGuide(P, nc.p.x, nc.p.z, true, t, dt); }
       G.recT+=dt; if(G.recT>=.1){ G.recT-=.1; G.rec.push([+P.position.x.toFixed(2),+P.position.z.toFixed(2),+P.rotation.y.toFixed(2)]); }
     }
   }
   if(G.mode==='race' && G.ghost && S.ghost){ const fi=G.time*10, i=Math.floor(fi), a=S.ghost[Math.min(i,S.ghost.length-1)], b=S.ghost[Math.min(i+1,S.ghost.length-1)], u=fi-i; G.ghost.position.set(a[0]+(b[0]-a[0])*u,0,a[1]+(b[1]-a[1])*u); G.ghost.rotation.y=b[2]; animateOllie(G.ghost, G.running&&i<S.ghost.length-1?6:0, dt, t); }
   if(G.mode==='race') updateCheckpoints();
   animateOllie(P, speed, dt, t);
+  P.visible = !(G.mode==='maze' && G.running && !G.paused && G.hitCd>0 && Math.floor(t*14)%2===0); // Zinigames: blink while safe after a jelly bump
   // world anim
   for(const c of G.coins) if(c.visible){ c.rotation.y+=dt*2.6; c.rotation.z=Math.sin(t*2+c.userData.ph)*.15; c.position.y=.8+Math.sin(t*3+c.userData.ph)*.12; const k=Math.max(0,Math.sin(t*2.3+c.userData.ph*3)); c.userData.tw.material.opacity=k*k*k*.9; c.userData.tw.scale.setScalar(.3+k*.5); }
   if(G.rays){ G.rays.position.set(P.position.x,0,P.position.z); G.rays.userData.update(t,camera); }
@@ -677,7 +696,7 @@ function loop(now){ requestAnimationFrame(loop); realDt=(now-last)/1000; const d
 }
 
 /* ===================== SCREENS / UI ===================== */
-function showScreen(id){ ['lobby','panel','hud','cards'].forEach(s=>$('#'+s).classList.toggle('hidden', s!==id)); }
+function showScreen(id){ ['lobby','panel','hud','cards'].forEach(s=>$('#'+s).classList.toggle('hidden', s!==id)); document.body.dataset.screen=id; }
 // Level picker: kids can replay any level they've unlocked. Highest unlocked = S.level (maze) / S.cardsRound (cards).
 const PICK = { maze:null, cards:null };
 function pickMax(m){ return m==='maze'? S.level : S.cardsRound; }
@@ -774,22 +793,25 @@ function oddsModal(){ const pct=v=>(v*100).toFixed(v<.01?1:v<.1?1:0)+'%';
 const CARD_POOL = CHARS.filter(c=>c.id!=='hammy' && c.id!=='wade');
 const C = {};
 function startCards(r){ active='none'; showScreen('cards'); const round=Math.max(1, Math.min(r||S.cardsRound, S.cardsRound)); const pairs=Math.min(4+round*2,12); const pool=[CMAP.ollie, ...CARD_POOL.filter(c=>c.id!=='ollie').sort(()=>Math.random()-.5)].slice(0,pairs);
-  const deck=[...pool,...pool].sort(()=>Math.random()-.5); Object.assign(C,{deck, open:[], done:0, pairs, moves:0, t0:performance.now(), lock:false, round});
-  const n=deck.length; const cols = n<=12?(innerWidth>innerHeight?6:4): n<=16?(innerWidth>innerHeight?8:4):(innerWidth>innerHeight?8:5); const rows=Math.ceil(n/cols);
-  const grid=$('#cardGrid'); C.cols=cols; C.rows=rows;
+  const deck=[...pool,...pool].sort(()=>Math.random()-.5); Object.assign(C,{deck, open:[], done:0, pairs, moves:0, t0:0, lock:false, round, missT:null});
+  const grid=$('#cardGrid');
   grid.innerHTML=deck.map((c,i)=>`<div class="card" data-i="${i}"><div class="in"><div class="face back">🫧</div><div class="face front">${iconHtml(c,'em')}<b>${c.name.split(' the ')[0]}</b></div></div></div>`).join('');
   layoutCards(); $('#cardsRound').textContent=round; $('#cardsMoves').textContent=0; refreshCoins();
-  $$('.card').forEach(el=>el.onclick=()=>flipCard(el)); clearInterval(C.iv); C.iv=setInterval(()=>{ $('#cardsTime').textContent=Math.floor((performance.now()-C.t0)/1000); },250); }
+  $$('.card').forEach(el=>el.onclick=()=>flipCard(el)); clearInterval(C.iv); $('#cardsTime').textContent=0; C.iv=setInterval(()=>{ if(C.t0) $('#cardsTime').textContent=Math.floor((performance.now()-C.t0)/1000); },250); }
 function layoutCards(){ if(!C.deck) return; const grid=$('#cardGrid'); const top=$('.cards-top').getBoundingClientRect().height; const gap=Math.max(6,innerWidth*.012); const availH=innerHeight-top-gap*3, availW=Math.min(1100,innerWidth)-gap*4;
-  const ch=(availH-gap*(C.rows-1))/C.rows; const cw=Math.min(ch*.75,(availW-gap*(C.cols-1))/C.cols); grid.style.gridTemplateColumns=`repeat(${C.cols}, ${cw}px)`; grid.style.gridAutoRows=`${cw/.75}px`; grid.style.gap=gap+'px'; grid.style.setProperty('--cw',cw+'px'); }
+  // Zinigames: try every column count and keep the one with the biggest cards (re-run on resize/rotate)
+  const n=C.deck.length, fit=c=>{ const r=Math.ceil(n/c); return Math.min((availH-gap*(r-1))/r*.75, (availW-gap*(c-1))/c); }; let best=2; for(let c=2;c<=8;c++) if(fit(c)>fit(best)+.5) best=c; C.cols=best; C.rows=Math.ceil(n/best);
+  const cw=fit(best); grid.style.gridTemplateColumns=`repeat(${C.cols}, ${cw}px)`; grid.style.gridAutoRows=`${cw/.75}px`; grid.style.gap=gap+'px'; grid.style.setProperty('--cw',cw+'px'); }
 addEventListener('resize', ()=>{ if(!$('#cards').classList.contains('hidden')) layoutCards(); });
-function flipCard(el){ if(C.lock||el.classList.contains('up')||el.classList.contains('done')) return; ac(); SFX.flip(); el.classList.add('up'); C.open.push(el);
+function flipBack(){ if(!C.missT) return; clearTimeout(C.missT.s); clearTimeout(C.missT.b); C.missT.pair.forEach(x=>x.classList.remove('up','shake')); C.missT=null; C.open=[]; C.lock=false; }
+function flipCard(el){ if(C.missT && !C.missT.pair.includes(el) && !el.classList.contains('done')) flipBack(); // Zinigames: tap-through on a miss
+  if(C.lock||el.classList.contains('up')||el.classList.contains('done')) return; ac(); SFX.flip(); if(!C.t0) C.t0=performance.now(); el.classList.add('up'); C.open.push(el);
   if(C.open.length===2){ C.moves++; $('#cardsMoves').textContent=C.moves; const [a,b]=C.open; const ca=C.deck[a.dataset.i], cb=C.deck[b.dataset.i];
-    if(ca.id===cb.id){ setTimeout(()=>{ a.classList.add('done'); b.classList.add('done'); SFX.match(); C.open=[]; C.done++; if(C.done===C.pairs) cardsWin(); },300); }
-    else { C.lock=true; setTimeout(()=>{ SFX.miss(); a.classList.add('shake'); b.classList.add('shake'); },450); setTimeout(()=>{ a.classList.remove('up','shake'); b.classList.remove('up','shake'); C.open=[]; C.lock=false; },900); } } }
-function cardsWin(){ clearInterval(C.iv); const secs=Math.round((performance.now()-C.t0)/1000); const perfect=C.pairs; const bonus=Math.max(0, C.pairs*3 - (C.moves-perfect)); ECO.ensureDay(S); const ce=ECO.cardsEarn(S, 10+C.pairs*2+bonus), earned=ce.earned; S.coins+=earned; S.activitiesToday++; S.cardsRound=Math.max(S.cardsRound, C.round+1); save(); SFX.win(); confetti('#2ee6d6');
+    if(ca.id===cb.id){ C.open=[]; C.done++; const last=C.done===C.pairs; setTimeout(()=>{ a.classList.add('done'); b.classList.add('done'); SFX.match(); if(last) setTimeout(cardsWin,350); },300); } // Zinigames: clear open pair now so a fast 3rd tap can't get stuck face-up
+    else { C.lock=true; const pair=[a,b]; C.missT={pair, s:setTimeout(()=>{ SFX.miss(); a.classList.add('shake'); b.classList.add('shake'); },450), b:setTimeout(()=>{ C.missT=null; a.classList.remove('up','shake'); b.classList.remove('up','shake'); C.open=[]; C.lock=false; },1000)}; } } }
+function cardsWin(){ clearInterval(C.iv); const secs=C.t0?Math.round((performance.now()-C.t0)/1000):0; const perfect=C.pairs; const bonus=Math.max(0, C.pairs*3 - (C.moves-perfect)); ECO.ensureDay(S); const ce=ECO.cardsEarn(S, 10+C.pairs*2+bonus), earned=ce.earned; S.coins+=earned; S.activitiesToday++; S.cardsRound=Math.max(S.cardsRound, C.round+1); save(); SFX.win(); confetti('#2ee6d6');
   showModal(`<h2>ALL MATCHED!</h2><div class="prize"><div class="ic">🃏</div><div class="big">${C.moves} moves · ${secs}s</div></div><div class="coinsum">${STAR} ${10+C.pairs*2} for finishing + ${bonus} sharp-memory bonus${ce.full?'':' (½ — Ollie is sleepy)'} = <b>${earned}</b></div>`, [['NEXT ROUND','green',()=>{ hideModal(); startCards(C.round+1); }],['LOBBY','blue',()=>{ hideModal(); quitToLobby(); }]]); }
-$('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); quitToLobby(); };
+$('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quitToLobby(); };
 
 /* ===================== INIT ===================== */
 resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);

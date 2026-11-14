@@ -98,6 +98,10 @@ body:not(.touch) #joy{opacity:.35;pointer-events:none}
 .card.done .front{background:linear-gradient(#c9ffb8,#6ee06a)}
 .card.shake .in{animation:shk .35s}
 @keyframes shk{25%{transform:rotateY(180deg) translateX(-6px)}75%{transform:rotateY(180deg) translateX(6px)}}
+/* Zinigames: matched pair does a happy bounce + glow */
+.card.done .in{animation:cpop .45s ease-out}
+@keyframes cpop{0%{transform:rotateY(180deg) scale(1)}45%{transform:rotateY(180deg) scale(1.14)}100%{transform:rotateY(180deg) scale(1)}}
+.card.done .front{box-shadow:0 calc(var(--u)*.5) 0 var(--ink),0 0 calc(var(--u)*2.2) #b8ff7a}
 /* MODAL */
 #modal{position:fixed;inset:0;background:rgba(5,15,45,.7);display:flex;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(3px)}
 .modal-card{background:linear-gradient(#2c8ff0,#1650b8);border:calc(var(--u)*.6) solid var(--ink);border-radius:calc(var(--u)*3);padding:calc(var(--u)*2.5) calc(var(--u)*4);min-width:min(80vw,calc(var(--u)*60));max-width:92vw;max-height:94vh;overflow:auto;text-align:center;box-shadow:0 calc(var(--u)*1) 0 var(--ink);position:relative}
@@ -129,6 +133,10 @@ body:not(.touch) #joy{opacity:.35;pointer-events:none}
 @keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
 #rotate{display:none;position:fixed;inset:auto 0 0 0;padding:10px;text-align:center;background:rgba(10,25,70,.85);font-size:16px;z-index:40;pointer-events:none}
 @media (orientation:portrait) and (pointer:coarse){#rotate{display:block}}
+/* Zinigames: cards + panels work fine upright, so no nag there; in-game the banner fades so it stops covering the joystick */
+body[data-screen=cards] #rotate,body[data-screen=panel] #rotate{display:none!important}
+body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
+@keyframes rotfade{0%,70%{opacity:1}100%{opacity:0}}
 #toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:rgba(10,25,70,.9);border:3px solid var(--ink);padding:10px 24px;border-radius:999px;font-size:calc(var(--u)*3);z-index:70;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 #toast.on{opacity:1}
 @media (orientation:portrait){:root{--u:min(1.25vw,1.2vh)} .side{top:calc(var(--u)*28)} .logo{top:calc(var(--u)*10)}}
