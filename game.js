@@ -717,7 +717,7 @@ function pickMax(m){ return m==='maze'? S.level : S.cardsRound; }
 function pickCur(m){ const mx=pickMax(m); if(PICK[m]==null || PICK[m]>mx) PICK[m]=mx; return Math.max(1, PICK[m]); }
 function resetPicks(){ PICK.maze=null; PICK.cards=null; }
 function refreshPicker(){ const m=S.mode, el=$('#lvlPick'); const show = m==='maze'||m==='cards'; el.classList.toggle('hidden', !show); $('#playRow').classList.toggle('solo', !show); if(!show) return;
-  const cur=pickCur(m), mx=pickMax(m); $('#lvlKind').textContent = m==='maze'?'LEVEL':'ROUND'; $('#lvlNum').textContent=cur; $('#lvlOf').textContent = cur<mx? `replay · best ${mx}` : 'newest!';
+  const cur=pickCur(m), mx=pickMax(m); $('#lvlKind').textContent = m==='maze'?'Level':'Round'; $('#lvlNum').textContent=cur; $('#lvlOf').textContent = cur<mx? ' · replay' : '';
   $('#lvlDown').classList.toggle('off', cur<=1); $('#lvlUp').classList.toggle('off', cur>=mx); el.classList.toggle('replay', cur<mx); }
 function stepPick(d){ const m=S.mode; if(m!=='maze'&&m!=='cards') return; const nv=Math.max(1, Math.min(pickMax(m), pickCur(m)+d)); if(nv===pickCur(m)){ SFX.miss(); if(d>0) toast(`Finish ${m==='maze'?'Level':'Round'} ${pickMax(m)} to unlock the next one! 🔓`); return; } PICK[m]=nv; SFX.click(); refreshLobby(); }
 $('#lvlDown').onclick=()=>stepPick(-1); $('#lvlUp').onclick=()=>stepPick(1);
