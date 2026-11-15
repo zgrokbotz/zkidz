@@ -1,8 +1,8 @@
 :root{--ink:#16163a;--gold1:#ffe25a;--gold2:#ffaa00;--blue:#1d8fe8;--font:'Lilita One','Arial Black','Trebuchet MS',system-ui,sans-serif;--u:min(1vw,1.8vh)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
-html,body{margin:0;height:100%;overflow:hidden;background:#0b5fae;font-family:var(--font);color:#fff;touch-action:none}
-#c{position:fixed;inset:0;width:100%;height:100%;display:block}
-.screen{position:fixed;inset:0;pointer-events:none}
+html,body{margin:0;height:100%;height:100dvh;overflow:hidden;background:#0b5fae;font-family:var(--font);color:#fff;touch-action:none}
+#c{position:fixed;inset:0;width:100%;height:100%;height:100dvh;display:block}
+.screen{position:fixed;inset:0;height:100%;height:100dvh;max-height:100dvh;pointer-events:none}
 .screen>*{pointer-events:auto}
 .hidden{display:none!important}
 .out{text-shadow:0 3px 0 var(--ink),2px 2px 0 var(--ink),-2px 2px 0 var(--ink),2px -2px 0 var(--ink),-2px -2px 0 var(--ink)}
@@ -157,7 +157,7 @@ body:not(.touch) #joy{opacity:.35;pointer-events:none}
 #rotate{display:none;position:fixed;inset:auto 0 0 0;padding:10px;text-align:center;background:rgba(10,25,70,.85);font-size:16px;z-index:40;pointer-events:none}
 @media (orientation:portrait) and (pointer:coarse){#rotate{display:block}}
 /* Zinigames: cards + panels work fine upright, so no nag there; in-game the banner fades so it stops covering the joystick */
-body[data-screen=cards] #rotate,body[data-screen=panel] #rotate{display:none!important}
+body[data-screen=lobby] #rotate,body[data-screen=cards] #rotate,body[data-screen=panel] #rotate{display:none!important}
 body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 @keyframes rotfade{0%,70%{opacity:1}100%{opacity:0}}
 #toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:rgba(10,25,70,.9);border:3px solid var(--ink);padding:10px 24px;border-radius:999px;font-size:calc(var(--u)*3);z-index:70;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
@@ -484,3 +484,33 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 .settings-body .set-music-row{margin:calc(var(--u)*.3) 0 calc(var(--u)*1)}
 .settings-body .credits{margin-top:calc(var(--u)*.6);margin-bottom:0;padding-bottom:calc(var(--u)*.2)}
 .settings-body .credits p{font-size:calc(var(--u)*1.45);line-height:1.35}
+
+/* ---------- phone lobby layout ---------- */
+/* Portrait: raise PLAY + modes into a centered dock above the safe area / browser chrome. */
+@media (orientation:portrait) and (max-width:600px){
+  #lobbyDock{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*.8);z-index:3;width:min(82vw,calc(var(--u)*48));max-width:calc(100vw - 16px);pointer-events:none}
+  #lobbyDock>*{pointer-events:auto}
+  #lobbyDock .modes{position:relative;left:auto;right:auto;bottom:auto;display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--u)*.55);padding:calc(var(--u)*.7);width:100%;margin:0;box-sizing:border-box}
+  #lobbyDock .modes::before{grid-column:1/-1;margin:0 0 2px}
+  #lobbyDock .mode{min-width:0;width:100%;min-height:44px;font-size:calc(var(--u)*2.15);padding:calc(var(--u)*.25) calc(var(--u)*.4);line-height:1.05;white-space:normal;transform:none}
+  #lobbyDock .mode.sel{transform:none;box-shadow:0 calc(var(--u)*.4) 0 var(--ink),0 0 0 calc(var(--u)*.28) #fff}
+  #lobbyDock #playRow{position:relative;left:auto;bottom:auto;transform:none;width:100%;max-width:100%}
+  #lobbyDock #playBtn,#lobbyDock .btn.big{min-height:44px;width:100%;max-width:100%;font-size:calc(var(--u)*5.2);padding:calc(var(--u)*.7) calc(var(--u)*2)}
+  #lobby .side{top:calc(14% + env(safe-area-inset-top,0px));z-index:3}
+  #lobby .sq{min-width:44px;min-height:44px}
+  #lobby .logo{top:calc(var(--u)*11 + env(safe-area-inset-top,0px));font-size:calc(var(--u)*8.5)}
+  #lobby .top-left,#lobby .top-right{top:calc(var(--u)*2 + env(safe-area-inset-top,0px))}
+}
+/* Landscape phones: shrink the ZKIDZ banner and sit it in the top bar, above the character. */
+@media (orientation:landscape) and (max-height:500px){
+  #lobby .logo{top:max(6px, env(safe-area-inset-top,0px));font-size:clamp(26px,8.2vh,40px);letter-spacing:.5px;line-height:1;animation:none;z-index:4;transform:translateX(-50%) rotate(-2deg)}
+  #lobby #playRow{bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  #lobby .modes{bottom:calc(8px + env(safe-area-inset-bottom,0px));padding:calc(var(--u)*.3) calc(var(--u)*.55);gap:calc(var(--u)*.18)}
+  #lobby .modes::before{display:none}
+  #lobby .mode{min-height:44px;padding:calc(var(--u)*.08) calc(var(--u)*1);font-size:calc(var(--u)*1.7)}
+  #lobby .top-left,#lobby .top-right{top:calc(var(--u)*1.2 + env(safe-area-inset-top,0px))}
+  #lobby .side{top:calc(var(--u)*8.2);gap:calc(var(--u)*.4)}
+  #lobby .side.left{left:calc(var(--u)*2 + env(safe-area-inset-left,0px))}
+  #lobby .side.right{right:calc(var(--u)*2 + env(safe-area-inset-right,0px))}
+  #lobby .sq{height:auto;min-height:44px;min-width:44px;padding:calc(var(--u)*.15) 0 calc(var(--u)*.25)}
+}

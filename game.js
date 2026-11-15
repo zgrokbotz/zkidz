@@ -144,7 +144,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261115-5';
+const ASSET_V = '20261115-6';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -898,7 +898,12 @@ function updateGame(dt, t){
 function updateLobby(dt,t){ uOcc.on.value=0;
   const o=lobby.ollie; if(!o) return; animateOllie(o,0,dt,t); if(!dragging) lobby.extra=(lobby.extra||0)*(1-Math.min(1,dt*1.2)); o.rotation.y = Math.sin(t*.6)*.25 + (lobby.extra||0);
   lobby.bubbles.userData.update(dt); lobby.rays.userData.update(t,camera);
-  const portrait=innerWidth<innerHeight; if(window.__lobbyCam){ camera.position.fromArray(window.__lobbyCam[0]); camera.lookAt(...window.__lobbyCam[1]); } else { camera.position.set(0, portrait?3.5:2.9, portrait?9:6.6); camera.lookAt(0, portrait?2.0:1.95, 0); }
+  const portrait=innerWidth<innerHeight, phoneLand=!portrait && innerHeight<=500, phonePort=portrait && innerWidth<=600;
+  if(window.__lobbyCam){ camera.position.fromArray(window.__lobbyCam[0]); camera.lookAt(...window.__lobbyCam[1]); }
+  else if(viewOffsetMode){ camera.position.set(0, portrait?3.5:2.9, portrait?9:6.6); camera.lookAt(0, portrait?2.0:1.95, 0); }
+  else if(phonePort){ camera.position.set(0, 3.7, 10.4); camera.lookAt(0, 1.45, 0); }
+  else if(phoneLand){ camera.position.set(0, 2.55, 7.35); camera.lookAt(0, 1.45, 0); }
+  else { camera.position.set(0, portrait?3.5:2.9, portrait?9:6.6); camera.lookAt(0, portrait?2.0:1.95, 0); }
 }
 let last=performance.now(), realDt=0; const FPS={n:0,t:0,slow:0};
 function fpsMon(d){ if(active!=='game'||document.hidden) { FPS.n=0; FPS.t=0; return; } FPS.n++; FPS.t+=d; if(FPS.t>=2.5){ const fps=FPS.n/FPS.t; FPS.n=0; FPS.t=0; if((S.quality||'auto')==='auto' && !autoLow && fps<34){ if(++FPS.slow>=2){ autoLow=true; applyQuality(); toast('Switched to Low graphics for smoother play'); } } else FPS.slow=0; } }
@@ -908,6 +913,21 @@ function loop(now){ requestAnimationFrame(loop); realDt=(now-last)/1000; const d
 }
 
 /* ===================== SCREENS / UI ===================== */
+
+function charScreenRect(){
+  const o=lobby.ollie; if(!o||!camera) return null;
+  const box=new THREE.Box3().setFromObject(o), v=new THREE.Vector3();
+  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9, any=false;
+  const xs=[box.min.x,box.max.x], ys=[box.min.y,box.max.y], zs=[box.min.z,box.max.z];
+  for(const x of xs) for(const y of ys) for(const z of zs){
+    v.set(x,y,z).project(camera);
+    if(v.z>1) continue;
+    any=true;
+    const sx=(v.x*.5+.5)*innerWidth, sy=(-v.y*.5+.5)*innerHeight;
+    minX=Math.min(minX,sx); maxX=Math.max(maxX,sx); minY=Math.min(minY,sy); maxY=Math.max(maxY,sy);
+  }
+  return any?{left:minX,top:minY,right:maxX,bottom:maxY}:null;
+}
 function showScreen(id){ ['lobby','panel','hud','cards'].forEach(s=>$('#'+s).classList.toggle('hidden', s!==id)); document.body.dataset.screen=id; syncMusic(); }
 // Level picker: kids can replay any level they've unlocked. Highest unlocked = S.level (maze) / S.cardsRound (cards).
 const PICK = { maze:null, cards:null };
@@ -1099,4 +1119,4 @@ $('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quit
 /* ===================== INIT ===================== */
 resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
-window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
+window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
