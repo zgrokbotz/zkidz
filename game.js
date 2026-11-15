@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as ECO from './economy.js';
 import { openReefSort } from './sort/reef-sort.js';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261115-8';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261115-8';
 import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js';
 
 /* ===================== DATA ===================== */
@@ -146,7 +149,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261115-7';
+const ASSET_V = '20261115-8';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -271,7 +274,8 @@ function gradientBg(top, bottom){ const c=document.createElement('canvas'); c.wi
 // Smooth bean-shaped body+head (lathe), matching the 3D-printed figurine.
 const OLLIE_PROFILE = (()=>{ const pts=[[0,.06],[.3,.08],[.45,.16],[.53,.34],[.56,.56],[.55,.78],[.52,.98],[.5,1.1],[.53,1.24],[.565,1.42],[.55,1.6],[.47,1.78],[.3,1.93],[0,1.99]];
   const curve=new THREE.SplineCurve(pts.map(([r,y])=>new THREE.Vector2(r,y))); return curve.getPoints(60).map(p=>new THREE.Vector2(Math.max(0,p.x),p.y)); })();
-function bodyR(y){ const P=OLLIE_PROFILE; for(let i=1;i<P.length;i++){ if(P[i].y>=y){ const a=P[i-1],b=P[i]; const t=(y-a.y)/((b.y-a.y)||1); return a.x+(b.x-a.x)*t; } } return 0; }
+let ACTIVE_PROFILE = OLLIE_PROFILES.C;
+function bodyR(y){ const P=ACTIVE_PROFILE||OLLIE_PROFILE; for(let i=1;i<P.length;i++){ if(P[i].y>=y){ const a=P[i-1],b=P[i]; const t=(y-a.y)/((b.y-a.y)||1); return a.x+(b.x-a.x)*t; } } return 0; }
 function profileSlice(y0,y1,scale=1.05){ const pts=[]; for(let i=0;i<=16;i++){ const y=y0+(y1-y0)*i/16; pts.push(new THREE.Vector2(bodyR(y)*scale,y)); } return new THREE.LatheGeometry(pts,48); }
 const OLLIE_GEO = {};
 function ollieGeos(){ if(OLLIE_GEO.body) return OLLIE_GEO;
@@ -375,7 +379,7 @@ function dressSpecies(kind, rig, parts, ghost, mats){
     for(const s of [-1,1]){ parts['arm'+s].scale.set(1.25,.7,1.8); parts['foot'+s].scale.set(.2,.1,.24); }
   }
 }
-function buildOllie(opts={}){
+function buildOllieLegacy(opts={}){
   const { charId=S.selChar, equipped=S.equipped, ghost=false } = opts;
   const rawId = charId || 'ollie'; const kind = isPlayable(rawId) ? rawId : 'ollie';
   const ch = CMAP[kind]||CMAP.ollie; const GEO=ollieGeos(); const otter = kind==='ollie';
@@ -433,7 +437,11 @@ function addEquipment(g, parts, eq){
 function rainbowMat(){ const c=document.createElement('canvas'); c.width=8; c.height=64; const g=c.getContext('2d'); ['#ff4f6d','#ff9a1f','#ffd52e','#5be04a','#2bc0ff','#9b5bff'].forEach((col,i)=>{ g.fillStyle=col; g.fillRect(0,i*64/6,8,64/6+1); }); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return new THREE.MeshStandardMaterial({map:t,roughness:.7}); }
 function heartShape(){ const s=new THREE.Shape(); s.moveTo(0,-.6); s.bezierCurveTo(-.9,0,-.7,.8,0,.35); s.bezierCurveTo(.7,.8,.9,0,0,-.6); return s; }
 function starShape(){ const s=new THREE.Shape(); for(let i=0;i<10;i++){ const r=i%2?.32:.7, a=i/10*Math.PI*2+Math.PI/2; const x=Math.cos(a)*r,y=Math.sin(a)*r; i?s.lineTo(x,y):s.moveTo(x,y);} return s; }
-function animateOllie(o, speed, dt, t){
+installOllieV2({ CMAP, isPlayable, dressSpecies, addEquipment, getSave:()=>S, setProfile:P=>{ ACTIVE_PROFILE=P; } });
+setOllieVariant('C');
+function buildOllie(opts){ return buildOllieV2(opts); }
+function animateOllie(o, speed, dt, t){ animateChar(o, 'move', speed, dt, t); }
+function animateOllieLegacy(o, speed, dt, t){
   const p=o.userData.parts, rig=p.rig; o.userData.walk += dt*speed*2.6;
   const w=o.userData.walk; const target=Math.min(1,speed/4); o.userData.amt = (o.userData.amt||0) + (target-(o.userData.amt||0))*Math.min(1,dt*8); const amt=o.userData.amt;
   const idle = 1-amt;
@@ -455,7 +463,7 @@ const THUMBS = {}; let thumbR=null, thumbScene=null;
 function ensureThumbR(){
   if(thumbR) return;
   thumbR=new THREE.WebGLRenderer({ antialias:true, alpha:true, preserveDrawingBuffer:true }); thumbR.setPixelRatio(1); thumbR.setSize(224,224); thumbR.setClearColor(0x000000,0);
-  thumbR.outputColorSpace=THREE.SRGBColorSpace; thumbR.toneMapping=THREE.LinearToneMapping; thumbR.toneMappingExposure=1.05;
+  thumbR.outputColorSpace=THREE.SRGBColorSpace; thumbR.toneMapping=VISION_ACES?THREE.ACESFilmicToneMapping:THREE.LinearToneMapping; thumbR.toneMappingExposure=VISION_ACES?VISION_EXPOSURE:1.05;
   thumbScene=new THREE.Scene(); thumbScene.add(new THREE.HemisphereLight(0xffffff,0x6a7aa8,1.5)); const d=new THREE.DirectionalLight(0xffffff,2.2); d.position.set(3,5,6); thumbScene.add(d); const f=new THREE.DirectionalLight(0x9fd8ff,.8); f.position.set(-4,2,-3); thumbScene.add(f);
 }
 function disposeThumbR(){ if(!thumbR) return; thumbR.dispose(); thumbR.forceContextLoss(); thumbR=null; thumbScene=null; }
@@ -560,13 +568,11 @@ function reefCluster(inst, chunk, x, z, s=1, pal=CORAL_PAL.pinkPurple, n=4, rock
 const lobby = { scene:new THREE.Scene(), ollie:null, t:0 };
 (function buildLobby(){
   const sc=lobby.scene; sc.background=gradientBg('#6fdcff','#0b56a8'); sc.fog=new THREE.Fog(0x2a90d8, 12, 46);
-  addLights(sc);
+  setupVisionScene(sc, renderer);
   const floor=new THREE.Mesh(new THREE.CircleGeometry(70,64), sandMaterial(16)); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; sc.add(floor);
-  // stone pedestal (rounded lathe) + moss + pebbles
-  const prof=[[0,0],[1.72,0],[1.78,.06],[1.8,.28],[1.74,.4],[1.6,.46],[1.32,.48],[1.3,.52],[1.26,.56],[0,.56]].map(([x,y])=>new THREE.Vector2(x,y));
-  const ped=new THREE.Mesh(new THREE.LatheGeometry(new THREE.SplineCurve(prof).getPoints(40),48), MATS.stone); ped.receiveShadow=true; ped.castShadow=true; sc.add(ped);
+  // Zharacters V2 stone pedestal (flagstones + pebbles); shop uses a shorter top so the character sits on it
+  lobby.pedestal=buildPedestal({ top: .52 }); sc.add(lobby.pedestal);
   const inst=new Instancer();
-  for(let i=0;i<14;i++){ const a=i/14*Math.PI*2+rand(-.1,.1); inst.add('rock','p', mtx(Math.cos(a)*1.95,.1,Math.sin(a)*1.95, rand(.22,.34),rand(.2,.3),rand(.22,.34),0,rand(0,6),0), pick([0x8b8fb5,0x9a96b8,0x7d7fa8])); }
   for(let i=0;i<9;i++){ const a=rand(-.4,Math.PI+.4); kelp(inst,'p', Math.cos(a)*2.05, 0, Math.sin(a)*2.05+.2, rand(.45,.8)); }
   // reef behind and around
   for(let i=0;i<34;i++){ const a=rand(Math.PI*1.05,Math.PI*1.95), d=rand(4.5,13); reefCluster(inst, 'b'+(i%6), Math.cos(a)*d, Math.sin(a)*d-1, rand(.9,1.8), Math.random()<.7?CORAL_PAL.pinkPurple:CORAL_PAL.warm, 5); }
@@ -581,8 +587,11 @@ const lobby = { scene:new THREE.Scene(), ollie:null, t:0 };
 function setLobbyOllie(){ if(lobby.ollie) lobby.scene.remove(lobby.ollie);
   const shop=viewOffsetMode==='shop';
   const opts = shop ? { charId:shopChar(), equipped:shopEq() } : {};
+  if(lobby.pedestal) lobby.scene.remove(lobby.pedestal);
+  lobby.pedestal=buildPedestal({ top: shop?.28:.52 }); lobby.scene.add(lobby.pedestal);
   lobby.ollie=buildOllie(opts);
-  lobby.ollie.userData.baseY=shop?.18:.52; lobby.ollie.position.y=lobby.ollie.userData.baseY; lobby.ollie.scale.setScalar(shop?1.12:1.6); lobby.scene.add(lobby.ollie); }
+  lobby.ollie.userData.baseY=shop?.28:.52; lobby.ollie.position.y=lobby.ollie.userData.baseY; lobby.ollie.scale.setScalar(shop?1.12:1.6); lobby.scene.add(lobby.ollie);
+  addBlobShadow(lobby.ollie); triggerAnim(lobby.ollie, 'wave'); }
 let viewOffsetMode=null;
 let shopTryOn=null; // {kind:'item',id} | {kind:'char',id} | {kind:'look',name,char,eq}
 function shopChar(){ if(shopTryOn && shopTryOn.kind==='char' && isPlayable(shopTryOn.id)) return shopTryOn.id; return S.selChar; }
@@ -615,7 +624,7 @@ function genMaze(n){
 // Zinigames: gentler growth (5,6,8,9,11,12,14,15,17,18,20,21…) instead of +2 cells per level; old curve was 3+level*2.
 function mazeSize(level){ return Math.min(21, 5 + Math.floor((Math.max(1,level)-1)*1.5)); }
 function tileToWorld(i,j,T){ return new THREE.Vector3((i-T/2+.5)*TILE, 0, (j-T/2+.5)*TILE); }
-function startMaze(level){
+function startMaze(level){ viewOffsetMode=null; updateViewOffset();
   const sc=baseGameScene(); G.mode='maze'; G.level=level; const low=isLow(); const dens=low?.55:1;
   const n=mazeSize(level); const mz=genMaze(n); G.maze=mz; const {grid,T}=mz;
   const half=T*TILE/2;
@@ -673,7 +682,7 @@ function collideMaze(p, r){
 /* ---------- RACE ---------- */
 const RA=34, RB=20, LAPS=2, NCP=8;
 function ellE(x,z){ return Math.sqrt((x/RA)**2+(z/RB)**2); }
-function startRace(){
+function startRace(){ viewOffsetMode=null; updateViewOffset();
   const sc=baseGameScene(); G.mode='race'; G.level=1; G.maze=null; const low=isLow(); const dens=low?.55:1;
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(220,220), sandMaterial(30)); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; sc.add(floor);
   const shape=new THREE.Shape(); const hole=new THREE.Path(); const N=120;
@@ -736,7 +745,7 @@ function hudCount(){ $('#hudCoins').textContent=String(G.collected).padStart(3,'
 function updateInfo(){ const el=$('#hudInfo'); if(G.mode==='maze') el.innerHTML=`Find the treasure chest! 🎁  ${G.collected}/${G.coins.length} ${STAR}`; else if(G.mode==='race') el.textContent=`Checkpoint ${Math.min(G.cpIdx+1,NCP)}/${NCP} · Lap ${G.lap}/${LAPS}` + (S.ghost?' · beat your ghost! 👻':''); }
 let cmT; function centerMsg(t){ const e=$('#centerMsg'); e.textContent=t; e.classList.remove('pop'); void e.offsetWidth; if(t) e.classList.add('pop'); }
 function fmtTime(t){ const m=Math.floor(t/60), s=Math.floor(t%60); return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }
-function quitToLobby(){ resetPicks(); G.running=false; active='lobby'; exitPointerLock(); hideModal(); showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); }
+function quitToLobby(){ resetPicks(); G.running=false; active='lobby'; exitPointerLock(); hideModal(); viewOffsetMode=null; updateViewOffset(); showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); }
 
 /* ===== economy v2: every 5 wins = a Play chest; chests wait in S.pendingChests (reload-safe) until shown ===== */
 function noteWin(){ const r=ECO.noteWin(S); if(r){ ECO.incrementPity(S, r.rarity, {high:false}); S.pendingChests.push({ rarity:r.rarity, source:r.source }); } return !!r; }
@@ -817,7 +826,7 @@ function exitPointerLock(){ if(document.pointerLockElement) document.exitPointer
 document.addEventListener('pointerlockchange', ()=>{ locked = document.pointerLockElement===canvas; if(!locked && active==='game' && G.running && !G.paused && !isTouch && $('#modal').classList.contains('hidden')) pauseGame(); /* Esc released the mouse: pause */ });
 canvas.addEventListener('pointerdown', e=>{
   ac();
-  if(active!=='game') { if(active==='lobby'){ dragging={id:e.pointerId,x:e.clientX,y:e.clientY,lobby:true}; } return; }
+  if(active!=='game') { if(active==='lobby'){ dragging={id:e.pointerId,x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,lobby:true}; } return; }
   if(e.pointerType==='mouse' && !locked){ try{ const r=canvas.requestPointerLock(); if(r&&r.catch) r.catch(()=>{}); }catch(_){} }
   dragging={id:e.pointerId,x:e.clientX,y:e.clientY};
 });
@@ -827,7 +836,7 @@ addEventListener('pointermove', e=>{
     if(dragging.lobby){ lobby.extra=(lobby.extra||0)+dx*.012; return; }
     G.yaw -= dx*.006; G.pitch=Math.max(.45,Math.min(1.3,G.pitch+dy*.004)); }
 });
-addEventListener('pointerup', e=>{ if(dragging&&dragging.id===e.pointerId) dragging=null; });
+addEventListener('pointerup', e=>{ if(dragging&&dragging.id===e.pointerId){ if(dragging.lobby && lobby.ollie && Math.hypot((e.clientX-(dragging.sx??dragging.x)),(e.clientY-(dragging.sy??dragging.y)))<12) triggerAnim(lobby.ollie,'tap'); dragging=null; } });
 addEventListener('pointercancel', e=>{ if(dragging&&dragging.id===e.pointerId) dragging=null; });
 // joystick
 const joyEl=$('#joy'), knob=$('#joyKnob');
@@ -911,7 +920,7 @@ function updateGame(dt, t){
   drawMinimap();
 }
 function updateLobby(dt,t){ uOcc.on.value=0;
-  const o=lobby.ollie; if(!o) return; animateOllie(o,0,dt,t); if(!dragging) lobby.extra=(lobby.extra||0)*(1-Math.min(1,dt*1.2)); o.rotation.y = Math.sin(t*.6)*.25 + (lobby.extra||0);
+  const o=lobby.ollie; if(!o) return; animateChar(o,'idle',0,dt,t); if(!dragging) lobby.extra=(lobby.extra||0)*(1-Math.min(1,dt*1.2)); o.rotation.y = Math.sin(t*.6)*.12 + (lobby.extra||0);
   lobby.bubbles.userData.update(dt); lobby.rays.userData.update(t,camera);
   const portrait=innerWidth<innerHeight, phoneLand=!portrait && innerHeight<=500, phonePort=portrait && innerWidth<=600;
   if(window.__lobbyCam){ camera.position.fromArray(window.__lobbyCam[0]); camera.lookAt(...window.__lobbyCam[1]); }
