@@ -468,12 +468,19 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 .featured-track .item .rar{position:absolute;top:3px;left:3px}
 
 /* music toggle next to currency / settings */
-.music-tog{width:calc(var(--u)*6.4);height:calc(var(--u)*6.4);min-width:44px;min-height:44px;border-radius:calc(var(--u)*1.6);border:calc(var(--u)*.4) solid var(--ink);background:linear-gradient(#7fe0ff,#1e9bf0);font-size:calc(var(--u)*3.2);box-shadow:0 calc(var(--u)*.5) 0 var(--ink);display:grid;place-items:center;padding:0;position:relative;overflow:hidden;line-height:1;flex:0 0 auto}
-.music-tog.off{background:linear-gradient(#c7cbd6,#8a90a3)}
-.music-tog.off::after{content:'';position:absolute;left:18%;right:18%;top:50%;height:calc(var(--u)*.4);background:#16163a;transform:rotate(-28deg);border-radius:99px;pointer-events:none;z-index:2}
-.cards-top .music-tog,.panel-head .music-tog{width:calc(var(--u)*5.6);height:calc(var(--u)*5.6)}
-.credits{margin-top:calc(var(--u)*1);margin-bottom:calc(var(--u)*.6);padding-bottom:calc(var(--u)*.4);text-align:left;font-size:calc(var(--u)*1.55);line-height:1.35;opacity:.92}
+#musicBox{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;opacity:0}
+.credits{margin-top:calc(var(--u)*1);margin-bottom:calc(var(--u)*.8);padding-bottom:calc(var(--u)*1.2);text-align:left;font-size:calc(var(--u)*1.55);line-height:1.35;opacity:.92}
 .modal-card .credits p{font-size:calc(var(--u)*1.6);margin:4px 0 0;line-height:1.4}
 .credits h3{margin:0 0 4px;font-size:calc(var(--u)*2);color:#ffd52e;text-shadow:0 2px 0 var(--ink)}
 .credits ul{margin:0;padding-left:1.2em}
 .credits a{color:#9fe8ff}
+.set-lbl{font-size:calc(var(--u)*2.6);margin:calc(var(--u)*1) 0 0;color:#ffe25a;text-shadow:0 2px 0 var(--ink)}
+.set-music-row{display:flex;justify-content:center;margin:calc(var(--u)*.6) 0 calc(var(--u)*1.8)}
+.set-music{min-width:calc(var(--u)*24);min-height:44px;font-size:calc(var(--u)*2.6)}
+
+.settings-body .set-lbl{margin-top:calc(var(--u)*.2)}
+.settings-body .note{font-size:calc(var(--u)*2.05);margin:2px 0}
+.settings-body > p{margin:calc(var(--u)*.35) 0}
+.settings-body .set-music-row{margin:calc(var(--u)*.3) 0 calc(var(--u)*1)}
+.settings-body .credits{margin-top:calc(var(--u)*.6);margin-bottom:0;padding-bottom:calc(var(--u)*.2)}
+.settings-body .credits p{font-size:calc(var(--u)*1.45);line-height:1.35}

@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a6fc2">
 <title>ZKIDZ – Ocean Maze</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦦</text></svg>">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261115-5">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/addons/"}}</script>
 </head>
 <body>
@@ -20,7 +20,7 @@
     <div class="avatar"></div>
     <div><div class="pname" id="pname">PlayerOne</div><div class="trophy">🏆 <span id="trophies">0</span></div></div>
   </div>
-  <div class="top-right currency"><button class="gear" id="gearBtn" title="Settings">⚙️</button><button class="music-tog" type="button" title="Music on" aria-label="Music on" aria-pressed="true">🎵</button><div class="pill"><span class="coin-ic" title="Starfish"></span><span class="coinCount">0</span></div></div>
+  <div class="top-right currency"><button class="gear" id="gearBtn" title="Settings">⚙️</button><div class="pill"><span class="coin-ic" title="Starfish"></span><span class="coinCount">0</span></div></div>
   <div class="logo">ZKIDZ</div>
   <div class="side left">
     <button class="sq shop-sq" data-open="shop"><span class="shop-stand"><svg class="shop-svg" viewBox="0 0 64 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 8h52l-5 16H11L6 8z" fill="#fff4d6" stroke="#16163a" stroke-width="3" stroke-linejoin="round"/><path d="M14 8l4 16h9L23 8z" fill="#ff5b6c"/><path d="M36 8l4 16h9L45 8z" fill="#ff5b6c"/><path d="M6 8h52" fill="none" stroke="#16163a" stroke-width="3"/><circle cx="14" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="26" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><circle cx="38" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="50" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><rect x="12" y="28" width="40" height="20" rx="4" fill="#e39a3a" stroke="#16163a" stroke-width="3"/><rect x="20" y="32" width="24" height="10" rx="2" fill="#7fd6ff" stroke="#16163a" stroke-width="2"/><polygon points="32,4 34.2,8.6 39.2,9 35.4,12.4 36.5,17.2 32,14.6 27.5,17.2 28.6,12.4 24.8,9 29.8,8.6" fill="#ffc94a" stroke="#16163a" stroke-width="1.6" stroke-linejoin="round"/></svg></span>SHOP</button>
@@ -45,7 +45,7 @@
 
 <!-- PANELS -->
 <div id="panel" class="screen hidden">
-  <div class="panel-head"><button class="btn back" id="panelBack">◀</button><div class="panel-title" id="panelTitle">SHOP</div><button class="music-tog" type="button" title="Music on" aria-label="Music on" aria-pressed="true">🎵</button><div class="pill"><span class="coin-ic" title="Starfish"></span><span class="coinCount">0</span></div></div>
+  <div class="panel-head"><button class="btn back" id="panelBack">◀</button><div class="panel-title" id="panelTitle">SHOP</div><div class="pill"><span class="coin-ic" title="Starfish"></span><span class="coinCount">0</span></div></div>
   <div class="panel-body" id="panelBody"></div>
 </div>
 
@@ -56,7 +56,7 @@
   <div class="hud-info" id="hudInfo"></div>
   <div class="top-right col">
     <div class="pill"><span class="coin-ic" title="Starfish"></span><span id="hudCoins">000</span></div>
-    <button class="music-tog" type="button" title="Music on" aria-label="Music on" aria-pressed="true">🎵</button>
+    
     <button class="btn small" id="pauseBtn">⏸</button>
     <canvas id="minimap" width="160" height="160"></canvas>
   </div>
@@ -74,7 +74,7 @@
     <div class="pill">⏱ <span id="cardsTime">0</span>s</div>
     <div class="pill">👆 <span id="cardsMoves">0</span></div>
     <div class="pill"><span class="coin-ic" title="Starfish"></span><span class="coinCount">0</span></div>
-    <button class="music-tog" type="button" title="Music on" aria-label="Music on" aria-pressed="true">🎵</button>
+    
   </div>
   <div id="cardGrid"></div>
 </div>
@@ -83,6 +83,7 @@
 <div id="modal" class="hidden"><div class="modal-card" id="modalCard"></div></div>
 <div id="rotate">📱↻ Turn your phone sideways for the best fun!</div>
 <div id="toast"></div>
-<script type="module" src="game.js"></script>
+<div id="musicBox" aria-hidden="true"></div>
+<script type="module" src="game.js?v=20261115-5"></script>
 </body>
 </html>

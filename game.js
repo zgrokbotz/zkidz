@@ -142,34 +142,79 @@ const SFX = {
 };
 
 /* ===================== BACKGROUND MUSIC ===================== */
-const MUSIC_FILES = { lobby:'audio/lobby.ogg', play:'audio/play.ogg', race:'audio/race.ogg', sort:'audio/sort.ogg' };
-const MUSIC_VOL = 0.35;
+// HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
+// iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
+const ASSET_V = '20261115-5';
+const MUSIC_KEYS = ['lobby','play','race','sort'];
+const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
-let musicReady=false, musicKey=null, musicA=null, musicFade=null, musicBgPaused=false;
+let musicReady=false, musicKey=null, musicA=null, musicFade=null, musicBgPaused=false, musicExt=null;
 const musicPool={};
 function musicEnabled(){ return S.music!==false; }
-function musicUrl(file){ if(window.__MUSIC_BASE) return window.__MUSIC_BASE+file; if(location.protocol==='file:') return MUSIC_HOST+file; return file; }
-function getTrack(key){ if(!musicPool[key]){ const a=new Audio(musicUrl(MUSIC_FILES[key])); a.loop=true; a.preload='auto'; a.volume=0; musicPool[key]=a; } return musicPool[key]; }
-function preloadMusic(){ Object.keys(MUSIC_FILES).forEach(getTrack); }
-function refreshMusicBtns(){ const on=musicEnabled(); $$('.music-tog').forEach(b=>{ b.classList.toggle('off', !on); b.setAttribute('aria-pressed', on?'true':'false'); b.title=on?'Music on':'Music off'; b.setAttribute('aria-label', on?'Music on':'Music off'); }); }
+function pickAudioExt(probe){
+  const a=probe || document.createElement('audio');
+  const can=t=>{ try{ const v=a.canPlayType && a.canPlayType(t); return v==='probably'||v==='maybe'; }catch(e){ return false; } };
+  if(can('audio/mp4; codecs="mp4a.40.2"')||can('audio/mp4')||can('audio/aac')||can('audio/x-m4a')) return 'm4a';
+  if(can('audio/mpeg')||can('audio/mp3')) return 'mp3';
+  if(can('audio/ogg; codecs="vorbis"')||can('audio/ogg')) return 'ogg';
+  return 'mp3';
+}
+function musicFormat(){ if(!musicExt) musicExt=pickAudioExt(); return musicExt; }
+function musicUrl(key){
+  const file=`audio/${key}.${musicFormat()}?v=${ASSET_V}`;
+  if(window.__MUSIC_BASE) return window.__MUSIC_BASE+file;
+  if(location.protocol==='file:') return MUSIC_HOST+file;
+  return file;
+}
+function getTrack(key){
+  if(musicPool[key]) return musicPool[key];
+  const a=new Audio();
+  a.loop=true; a.preload='auto'; a.volume=MUSIC_VOL; a.playsInline=true;
+  a.setAttribute('playsinline',''); a.setAttribute('webkit-playsinline','');
+  a.src=musicUrl(key);
+  const box=$('#musicBox')||document.body; box.appendChild(a);
+  musicPool[key]=a; return a;
+}
+function preloadMusic(){ MUSIC_KEYS.forEach(getTrack); }
+function musicIsPlaying(){ return !!(musicA && !musicA.paused && !musicA.ended); }
 let musicFadeGen=0;
 function clampVol(v){ return Math.max(0, Math.min(MUSIC_VOL, v)); }
 function fadeMusic(from, to, dur=0.7){ const gen=++musicFadeGen; if(musicFade){ cancelAnimationFrame(musicFade); musicFade=null; } const t0=performance.now(), startFrom=clampVol(from?from.volume:0);
   const tick=(now)=>{ if(gen!==musicFadeGen) return; const k=Math.min(1,(now-t0)/(dur*1000)); if(to) to.volume=clampVol(MUSIC_VOL*k); if(from && from!==to) from.volume=clampVol(startFrom*(1-k));
-    if(k<1) musicFade=requestAnimationFrame(tick); else { musicFade=null; if(from && from!==to){ from.pause(); try{ from.currentTime=0; }catch(e){} from.volume=0; } if(to) to.volume=MUSIC_VOL; } };
+    if(k<1) musicFade=requestAnimationFrame(tick); else { musicFade=null; if(from && from!==to){ from.pause(); try{ from.currentTime=0; }catch(e){} from.volume=MUSIC_VOL; } if(to) to.volume=MUSIC_VOL; } };
   musicFade=requestAnimationFrame(tick); }
-function stopMusic(fade=true){ const prev=musicA; musicKey=null; musicA=null; if(!prev) return; if(!fade){ prev.pause(); try{ prev.currentTime=0; }catch(e){} prev.volume=0; return; } fadeMusic(prev, null, 0.4); }
-function playMusic(key){ if(!musicReady || !musicEnabled()){ if(musicA) stopMusic(); return; } if(!key) return;
-  if(key===musicKey && musicA && !musicA.paused) return;
-  const next=getTrack(key), prev=musicA; musicKey=key; musicA=next; next.volume=0;
+function stopMusic(fade=true){ const prev=musicA; musicKey=null; musicA=null; if(!prev) return; if(!fade){ prev.pause(); try{ prev.currentTime=0; }catch(e){} prev.volume=MUSIC_VOL; return; } fadeMusic(prev, null, 0.4); }
+function playMusic(key){
+  if(!musicReady || !musicEnabled()){ if(musicA) stopMusic(); return Promise.resolve(); }
+  if(!key) return Promise.resolve();
+  if(key===musicKey && musicIsPlaying()) return Promise.resolve();
+  const next=getTrack(key), prev=musicA; musicKey=key; musicA=next;
+  next.muted=false;
+  if(!prev || prev===next){ next.volume=MUSIC_VOL; const p=next.play(); if(p&&p.catch) p.catch(()=>{}); return p||Promise.resolve(); }
+  next.volume=0;
   const p=next.play(); if(p&&p.catch) p.catch(()=>{});
-  fadeMusic(prev && prev!==next ? prev : null, next, prev?0.7:0.45); }
+  fadeMusic(prev, next, 0.7);
+  return p||Promise.resolve();
+}
 function sceneMusicKey(explicit){ if(explicit) return explicit; const screen=document.body.dataset.screen; if(screen==='lobby'||screen==='panel') return 'lobby'; if(screen==='cards') return 'play'; if(screen==='hud') return (G && G.mode==='race')?'race':'play'; return null; }
 function syncMusic(explicit){ if(!musicReady) return; if(!musicEnabled() || document.hidden){ if(musicA && !musicA.paused) musicA.pause(); return; } const key=sceneMusicKey(explicit); if(key) playMusic(key); }
-function unlockMusic(){ ac(); if(musicReady) return; musicReady=true; preloadMusic(); syncMusic(); }
-function setMusicOn(on){ S.music=!!on; save(); refreshMusicBtns(); if(on){ unlockMusic(); syncMusic(); } else stopMusic(); toast(on?'Music on 🎵':'Music off'); }
-function bindMusicToggles(){ $$('.music-tog').forEach(b=>b.onclick=e=>{ e.stopPropagation(); SFX.click(); setMusicOn(!musicEnabled()); }); }
-document.addEventListener('pointerdown', unlockMusic, {capture:true});
+function armTracksForIOS(){
+  // play/pause every element inside this user gesture so later scene changes can call play()
+  MUSIC_KEYS.forEach(k=>{
+    const a=getTrack(k);
+    try{ const p=a.play(); if(p&&p.catch) p.catch(()=>{}); a.pause(); try{ a.currentTime=0; }catch(e){} a.muted=false; a.volume=MUSIC_VOL; }catch(e){}
+  });
+}
+function unlockMusic(){
+  ac();
+  preloadMusic();
+  if(musicIsPlaying()){ musicReady=true; return; }
+  musicReady=true;
+  armTracksForIOS();
+  if(musicEnabled() && !document.hidden) syncMusic();
+}
+function setMusicOn(on){ S.music=!!on; save(); if(on){ unlockMusic(); syncMusic(); } else stopMusic(); toast(on?'Music on 🎵':'Music off'); }
+['pointerdown','touchend','click'].forEach(ev=>document.addEventListener(ev, unlockMusic, {capture:true}));
 document.addEventListener('visibilitychange', ()=>{ if(document.hidden){ if(musicA && !musicA.paused){ musicA.pause(); musicBgPaused=true; } }
   else if(musicBgPaused){ musicBgPaused=false; if(musicReady && musicEnabled() && musicA){ const p=musicA.play(); if(p&&p.catch) p.catch(()=>{}); } else syncMusic(); } });
 
@@ -878,13 +923,18 @@ function refreshLobby(){ refreshCoins(); $$('.mode').forEach(b=>b.classList.togg
 $$('.mode').forEach(b=>b.onclick=()=>{ SFX.click(); S.mode=b.dataset.mode; save(); refreshLobby(); });
 function startSort(){ active='none'; openReefSort({ ECO, S, save, onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); } }); syncMusic('sort'); }
 $('#playBtn').onclick=()=>{ ac(); SFX.go(); if(S.mode==='maze') startMaze(pickCur('maze')); else if(S.mode==='race') startRace(); else if(S.mode==='sort') startSort(); else startCards(pickCur('cards')); };
-function openSettings(){ SFX.click(); const cur=S.quality||'auto'; const opt=(k,l)=>[`${k===cur?'✔ ':''}${l}`, k===cur?'green':'blue', ()=>{ S.quality=k; if(k!=='auto') autoLow=false; save(); applyQuality(); hideModal(); toast(`Graphics: ${l}`); }];
-  const musicLbl=musicEnabled()?'🎵 MUSIC: ON':'🎵 MUSIC: OFF';
-  showModal(`<h2>SETTINGS</h2><p>Graphics quality</p><p class="note">AUTO starts on High and switches to Low if the game gets choppy. Low uses fewer corals, no shadows or light rays.</p>
+function openSettings(quiet){ if(!quiet) SFX.click(); const cur=S.quality||'auto'; const opt=(k,l)=>[`${k===cur?'✔ ':''}${l}`, k===cur?'green':'blue', ()=>{ S.quality=k; if(k!=='auto') autoLow=false; save(); applyQuality(); hideModal(); toast(`Graphics: ${l}`); }];
+  const musicOn=musicEnabled();
+  showModal(`<div class="settings-body"><h2>SETTINGS</h2>
+    <p class="set-lbl">Music</p>
+    <p class="note">Turn the underwater songs on or off. Your choice is saved.</p>
+    <div class="set-music-row"><button type="button" class="btn ${musicOn?'green':'gray'} set-music" id="setMusicBtn">${musicOn?'🎵 MUSIC: ON':'🎵 MUSIC: OFF'}</button></div>
+    <p>Graphics quality</p><p class="note">AUTO starts on High and switches to Low if the game gets choppy. Low uses fewer corals, no shadows or light rays.</p>
     <div class="credits"><h3>MUSIC CREDITS</h3>
-    <p>Every song is CC0 (public domain). Thank you to the authors! Lobby, Closet &amp; Shop: “Underwater Ambient Pad” by isaiah658. Maze &amp; Match Cards: “Drifting” by Some Weirdo. Race: “Frenzied Swimming” by Some Weirdo. Reef Sort: “Aquaria” by cynicmusic.</p></div>`,
-    [opt('auto','AUTO'),opt('high','HIGH'),opt('low','LOW'),[musicLbl, musicEnabled()?'green':'gray', ()=>{ setMusicOn(!musicEnabled()); hideModal(); }],['CLOSE','gray',hideModal]]); }
-$('#gearBtn').onclick=openSettings;
+    <p>All songs are CC0 (public domain). Lobby, Closet &amp; Shop: “Underwater Ambient Pad” by isaiah658. Maze &amp; Match Cards: “Happy Vibes” by Ruskerdax. Race: “Frenzied Swimming” by Some Weirdo. Reef Sort: “Aquaria” by cynicmusic.</p></div></div>`,
+    [opt('auto','AUTO'),opt('high','HIGH'),opt('low','LOW'),['CLOSE','gray',hideModal]]);
+  const mb=$('#setMusicBtn'); if(mb) mb.onclick=()=>{ setMusicOn(!musicEnabled()); openSettings(true); }; }
+$('#gearBtn').onclick=()=>openSettings();
 $('#profileBtn').onclick=()=>{ const n=prompt('Your player name:', S.name); if(n&&n.trim()){ S.name=n.trim().slice(0,16); save(); } };
 $$('[data-open]').forEach(b=>b.onclick=()=>{ SFX.click(); openPanel(b.dataset.open); });
 $('#panelBack').onclick=()=>{ SFX.click(); closePanel(); };
@@ -1047,6 +1097,6 @@ function cardsWin(){ clearInterval(C.iv); const secs=C.t0?Math.round((performanc
 $('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quitToLobby(); };
 
 /* ===================== INIT ===================== */
-resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); bindMusicToggles(); refreshMusicBtns(); showScreen('lobby'); requestAnimationFrame(loop);
+resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
-window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, vol:MUSIC_VOL, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
+window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
