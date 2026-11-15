@@ -5,16 +5,14 @@
 import { SORT_CHARS, BAR_SIZE, LEVEL_COUNT, levelParams, buildLevel, solve, reshuffle } from './levels.js';
 
 /* ============================================================================================
- * REWARDS — Zokenomics' numbers, approved by Zander.
- * Base pay goes ONLY through ECO.cardsEarn(S, base) (full for the first 3 activities of the day, then
- * half, min 5). Only every 3rd Reef Sort clear counts as one activity (S.activitiesToday). No chests, no pity.
+ * REWARDS — Zokenomics' economy v2, approved by Zander.
+ * Base pay + skill bonus go through ECO.reefEarn (no half pay, no daily caps). Every clear is a win for the
+ * shared "every 5 wins = a Play chest" counter via opts.onWin() (the chest opens back in the lobby).
  * ============================================================================================ */
-export const REEF_SORT_FIRST_CLEAR = 20;          // first clear of each story level 1-12
-export const REEF_SORT_REPLAY = 10;               // every replay and every endless/bonus level
-export const REEF_SORT_LEVELS_PER_ACTIVITY = 3;   // S.activitiesToday += 1 per 3 levels cleared
-/* Skill bonus (levels 7+ and endless). Paid on top of the base, NOT through cardsEarn (never halved),
- * capped per level and per day (S.rsBonusToday, reset in ECO.ensureDay). Not an activity, no chests/pity. */
-export const RS_BONUS_MIN_LEVEL = 7, RS_COMBO2 = 2, RS_COMBO3 = 3, RS_ROW_CLEAR = 3, RS_BONUS_LEVEL_CAP = 6, RS_BONUS_DAILY_CAP = 40;
+export const REEF_SORT_FIRST_CLEAR = 30;          // first clear of each story level 1-12 (mirrors ECO.REEF_SORT_FIRST_CLEAR)
+export const REEF_SORT_REPLAY = 15;               // every replay and every endless/bonus level (mirrors ECO.REEF_SORT_REPLAY)
+/* Skill bonus (levels 7+ and endless). Paid on top of the base, capped per level (+6). No daily cap in v2. */
+export const RS_BONUS_MIN_LEVEL = 7, RS_COMBO2 = 2, RS_COMBO3 = 3, RS_ROW_CLEAR = 3, RS_BONUS_LEVEL_CAP = 6;
 
 /* Own save key — never touches the shape of zkidz_save_v1 (only coins/daily counters via ECO). */
 export const SORT_SAVE_KEY = 'zkidz_sort_v1';
@@ -27,7 +25,7 @@ export function getReefSortProgress(){ const P=loadSortSave(); return { unlocked
 /** Standalone wallet: reads the main save (zkidz_save_v1) and writes back ONLY coins + the daily counters
  *  that ECO.ensureDay/cardsEarn use, re-reading the latest save first so nothing else is overwritten. */
 export function makeLocalHost(){
-  const MAIN='zkidz_save_v1', FIELDS=['coins','activitiesToday','playDate','loginDate','freeChestsToday','boughtChestsToday','rsBonusToday'];
+  const MAIN='zkidz_save_v1', FIELDS=['coins','activitiesToday','playDate','loginDate','freeChestsToday','boughtChestsToday','rsBonusToday','playDays','highTreasureToday'];
   const read=()=>{ try{ const o=JSON.parse(localStorage.getItem(MAIN)||'null'); return (o && typeof o==='object') ? o : null; }catch(e){ return null; } };
   const S=Object.assign({ coins:200, activitiesToday:0, playDate:'', loginDate:'', freeChestsToday:0, boughtChestsToday:0, rsBonusToday:0 }, read()||{});
   for(const k of ['coins','activitiesToday','freeChestsToday','boughtChestsToday','rsBonusToday']) if(typeof S[k]!=='number') S[k]=0;
@@ -336,13 +334,11 @@ function showModal(html, buttons=[]){ const m=$('.rs-modal'); m.classList.remove
 function closeModal(){ R && $('.rs-modal').classList.add('hidden'); }
 
 /* ===================== SKILL BONUS (levels 7+) ===================== */
-function bonusRoomToday(){ const S=R.opts.S; const used=S && typeof S.rsBonusToday==='number' ? S.rsBonusToday : 0; return RS_BONUS_DAILY_CAP - used - R.bonus; }
 /** Earn a skill bonus during play. Held on the level and paid at level clear (see payStarfish). */
 function skillBonus(amount, label, x, y){
   if(!R || !R.bonusOn) return;
-  if(R.opts.ECO && R.opts.S) R.opts.ECO.ensureDay(R.opts.S);
-  const today=bonusRoomToday(); const room=Math.min(RS_BONUS_LEVEL_CAP - R.bonus, today);
-  if(room<=0){ if(today<=0 && !R.maxShown){ R.maxShown=true; bonusPop(x, y, 'Max skill bonus today!', true); } return; }
+  const room=RS_BONUS_LEVEL_CAP - R.bonus; // per-level cap only (economy v2)
+  if(room<=0) return;
   const amt=Math.min(amount, room); R.bonus+=amt; bonusPop(x, y, `${label} +${amt}`); SND.chime();
 }
 function bonusPop(x, y, text, muted=false){ const d=document.createElement('div'); d.className='rs-float rs-bonuspop'+(muted?' max':''); d.innerHTML=`${muted?'':'<span class="rs-star"></span>'}${text}`; d.style.left=Math.max(90, Math.min(R.root.clientWidth-90, x))+'px'; d.style.top=Math.max(60, y)+'px'; $('.rs-fx').appendChild(d); setTimeout(()=>d.remove(),1500); }
@@ -360,16 +356,12 @@ function checkRows(quiet=false){
 function payStarfish(firstClear){
   const { ECO, S, save } = R.opts; if(!ECO || !S) return null;
   ECO.ensureDay(S);
-  const base = firstClear ? REEF_SORT_FIRST_CLEAR : REEF_SORT_REPLAY;
-  const r=ECO.cardsEarn(S, base); // shared economy rule (full → half after 3 activities/day, min 5)
-  S.coins+=r.earned;
-  if((R.P.clears||0) % REEF_SORT_LEVELS_PER_ACTIVITY === 0) S.activitiesToday++; // 1 activity per 3 Reef Sort clears
-  // skill bonus: separate from cardsEarn (never halved), clamped to what's left of today's cap
-  if(typeof S.rsBonusToday!=='number') S.rsBonusToday=0;
-  const bonus=Math.max(0, Math.min(R.bonus||0, RS_BONUS_DAILY_CAP - S.rsBonusToday));
-  S.coins+=bonus; S.rsBonusToday+=bonus;
+  const r = ECO.reefEarn ? ECO.reefEarn(firstClear, R.bonus||0) // economy v2: 30 first clear / 15 replay + skill (max +6/level)
+    : { base:firstClear ? REEF_SORT_FIRST_CLEAR : REEF_SORT_REPLAY, skill:Math.min(RS_BONUS_LEVEL_CAP, R.bonus||0) };
+  S.coins+=r.base+r.skill;
+  const win = R.opts.onWin ? R.opts.onWin() : null; // shared "every 5 wins = a Play chest" counter (host saves the chest)
   if(save) save();
-  return { ...r, base, bonus, maxed: !!R.bonusOn && S.rsBonusToday>=RS_BONUS_DAILY_CAP };
+  return { earned:r.base, base:r.base, bonus:r.skill, win };
 }
 function levelComplete(){
   const n=R.level; const ratio=R.sets? R.served/R.sets : 1; const stars= ratio>=.7 ? 3 : ratio>=.4 ? 2 : 1;
@@ -380,9 +372,10 @@ function levelComplete(){
   refreshCoins(); SND.win(); confetti(); later(()=>SND.cheer(7), 700);
   const hero = Object.entries(R.cleared).sort((a,b)=>b[1]-a[1])[0]; const hc=SORT_CHARS[hero? +hero[0] : R.chars[0]];
   const last = n===LEVEL_COUNT;
-  const payHtml = pay ? `<div class="rs-coinsum"><span class="rs-star"></span>+${pay.earned}${pay.full?'':' <small>(½ — Ollie is sleepy)</small>'}</div>`
+  const w = pay && pay.win; const left = w ? w.need - w.wins : 0;
+  const payHtml = pay ? `<div class="rs-coinsum"><span class="rs-star"></span>+${pay.earned}</div>`
     + (pay.bonus>0 ? `<div class="rs-coinsum rs-skill"><span class="rs-star"></span>Skill bonus +${pay.bonus}</div>` : '')
-    + (pay.maxed ? `<p class="rs-maxed">Max skill bonus today!</p>` : '') : '';
+    + (w ? (w.chest ? `<p class="rs-winchest got">🎉 5 wins! A bonus chest is waiting in the lobby! 🎁</p>` : `<p class="rs-winchest">🎁 Bonus chest in ${left} more ${left===1?'win':'wins'}</p>`) : '') : '';
   showModal(`<h2>${last?'REEF MASTER!':'LEVEL CLEAR!'}</h2><div class="rs-stars">${[1,2,3].map(i=>`<i class="${i<=stars?'on':''}" style="animation-delay:${.2+i*.18}s">★</i>`).join('')}</div>
     <div class="rs-hero" style="--cc:${hc.color}"><img src="${R.art(hc.id)}" alt="${hc.name}"></div>
     <p>${hc.name} says <b>THANK YOU!</b> 🎉</p><p>Orders served: ${R.served} / ${R.sets} · Moves: ${R.moves}</p>${payHtml}${last?'<p>You beat all 12 levels! Bonus reefs unlocked 🌊</p>':''}`,

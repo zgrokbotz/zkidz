@@ -130,3 +130,6 @@
 @keyframes rsBonusPop{0%{opacity:0;transform:translate(-50%,-30%) scale(.6)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}30%{transform:translate(-50%,-55%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-110%) scale(1)}}
 .rs-coinsum.rs-skill{display:flex;width:max-content;margin:4px auto;color:#7dfcff;font-size:19px}
 .rs-maxed{color:#ffe25a;font-size:16px;margin:2px 0}
+/* economy v2: shared 5-win chest counter on the level-clear card */
+.rs-winchest{margin:6px 0 0;font-size:clamp(13px,2.2vh,17px);opacity:.95}
+.rs-winchest.got{color:#ffe25a}

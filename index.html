@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a6fc2">
 <title>ZKIDZ – Ocean Maze</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦦</text></svg>">
-<link rel="stylesheet" href="style.css?v=20261115-6">
+<link rel="stylesheet" href="style.css?v=20261115-7">
 <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/addons/"}}</script>
 </head>
 <body>
@@ -42,6 +42,11 @@
     <button id="playBtn" class="btn big">PLAY<small id="playSub">Maze · Level 1</small></button>
     <div id="lvlPick" class="lvlpick"><button class="lp-arrow" id="lvlDown" aria-label="Lower level">◀</button><div class="lp-mid"><span id="lvlKind">Level</span> <b id="lvlNum">1</b><small id="lvlOf"></small></div><button class="lp-arrow" id="lvlUp" aria-label="Higher level">▶</button></div>
   </div>
+  <button id="lobbyProg" class="lobby-prog" type="button" aria-label="Progress: chests, collection and milestones">
+    <div class="lpg-row"><span class="lpg-ic">🎁</span><div class="lpg-main"><div class="lpg-lbl" id="lpChestLbl">Chest in 0/5 games</div><div class="lpg-seg" id="lpChestBar"><i></i><i></i><i></i><i></i><i></i></div></div></div>
+    <div class="lpg-row"><span class="lpg-ic">📖</span><div class="lpg-main"><div class="lpg-lbl" id="lpColLbl">Collection 1/59</div><div class="lpg-bar"><b id="lpColFill"></b></div></div></div>
+    <div class="lpg-mile" id="lpMile">Next milestone</div>
+  </button>
   </div>
 </div>
 
@@ -86,6 +91,6 @@
 <div id="rotate">📱↻ Turn your phone sideways for the best fun!</div>
 <div id="toast"></div>
 <div id="musicBox" aria-hidden="true"></div>
-<script type="module" src="game.js?v=20261115-6"></script>
+<script type="module" src="game.js?v=20261115-7"></script>
 </body>
 </html>

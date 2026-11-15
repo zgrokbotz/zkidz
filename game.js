@@ -49,7 +49,7 @@ const ITEMS = [
   { id:'jacket_galaxy',name:'Galaxy Jacket',     slot:'top',   r:'cosmic',   em:'🌌', m:{type:'jacket', c:0x5a2bd8, glow:0x2a0a80} },
   { id:'visor_star',   name:'Starlight Visor',   slot:'eyes',  r:'cosmic',   em:'🔮', m:{type:'visor', c:0x9b6bff} },
 ];
-ITEMS.forEach(i=>i.price=PRICE[i.r]);
+ITEMS.forEach(i=>i.price=ECO.ITEM_PRICE[i.r]); // economy v2: Epic items 800 (Zander); everything else = PRICE
 const IMAP = Object.fromEntries(ITEMS.map(i=>[i.id,i]));
 const SLOT_NAMES = { hat:'Headwear', eyes:'Eyewear', top:'Shirts & Jackets', bottom:'Pants', shoes:'Shoes', wrist:'Bracelets', hands:'Gloves' };
 
@@ -113,7 +113,9 @@ const SAVE_KEY = 'zkidz_save_v1';
 const defaultSave = () => ({ name:'PlayerOne', coins:200, owned:[], chars:['ollie'], selChar:'ollie', equipped:{}, level:1, bestLevel:0, raceTimes:[], ghost:null, cardsRound:1, chestsOpened:0, mode:'maze', music:true });
 let S;
 try { S = Object.assign(defaultSave(), JSON.parse(localStorage.getItem(SAVE_KEY)||'{}')); } catch(e){ S = defaultSave(); }
+const WAS_V1 = S.econ===1; // existing v1 player → one-time Cosmic notice (economy v2)
 ECO.initEconomy(ITEMS, CHARS); ECO.migrateSave(S); const HELLO_TODAY = ECO.ensureDay(S);
+if(!WAS_V1) S.cosmicNoticeSeen=true; // new players start on v2, nothing to explain
 function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} refreshCoins(); }
 
 /* ===================== AUDIO ===================== */
@@ -144,7 +146,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261115-6';
+const ASSET_V = '20261115-7';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -730,29 +732,42 @@ function beginRun(label){
   for(const k in keys) keys[k]=false; joy.x=joy.y=0;
   resize();
 }
-function bagCap(){ return G.mode==='maze'? ECO.mazeCollectCap(G.level) : ECO.RACE_COLLECT_CAP; }
-function hudCount(){ $('#hudCoins').textContent=String(Math.min(G.collected,bagCap())).padStart(3,'0'); }
+function hudCount(){ $('#hudCoins').textContent=String(G.collected).padStart(3,'0'); } // economy v2: no bag cap, every starfish counts
 function updateInfo(){ const el=$('#hudInfo'); if(G.mode==='maze') el.innerHTML=`Find the treasure chest! 🎁  ${G.collected}/${G.coins.length} ${STAR}`; else if(G.mode==='race') el.textContent=`Checkpoint ${Math.min(G.cpIdx+1,NCP)}/${NCP} · Lap ${G.lap}/${LAPS}` + (S.ghost?' · beat your ghost! 👻':''); }
 let cmT; function centerMsg(t){ const e=$('#centerMsg'); e.textContent=t; e.classList.remove('pop'); void e.offsetWidth; if(t) e.classList.add('pop'); }
 function fmtTime(t){ const m=Math.floor(t/60), s=Math.floor(t%60); return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }
-function quitToLobby(){ resetPicks(); G.running=false; active='lobby'; exitPointerLock(); hideModal(); showScreen('lobby'); setLobbyOllie(); refreshLobby(); }
+function quitToLobby(){ resetPicks(); G.running=false; active='lobby'; exitPointerLock(); hideModal(); showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); }
 
+/* ===== economy v2: every 5 wins = a Play chest; chests wait in S.pendingChests (reload-safe) until shown ===== */
+function noteWin(){ const r=ECO.noteWin(S); if(r){ ECO.incrementPity(S, r.rarity, {high:false}); S.pendingChests.push({ rarity:r.rarity, source:r.source }); } return !!r; }
+function winChestHtml(got){ return got ? `<p class="winchest got">🎉 5 wins! A <b>bonus chest</b> is coming! 🎁</p>` : `<p class="winchest">🎁 Bonus chest in <b>${ECO.WINS_PER_CHEST-S.winsTowardChest}</b> more ${ECO.WINS_PER_CHEST-S.winsTowardChest===1?'win':'wins'} ${winDots(S.winsTowardChest)}</p>`; }
+function winDots(n){ return `<span class="wdots">${Array.from({length:ECO.WINS_PER_CHEST},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join('')}</span>`; }
+const ALLSTAR_HTML = `<div class="allstar">⭐ ALL STARFISH! ⭐</div>`;
+/** Wraps a "what next" action so any waiting bonus chests open first, one after another. */
+function afterChests(next){ return ()=>{ const c=S.pendingChests[0]; if(!c){ next(); return; } S.pendingChests.shift(); // openChestModal rolls + saves right away
+  const go=afterChests(next); openChestModal(c.rarity, { source:c.source, title:'BONUS CHEST!', coinsHtml:`<p class="winchest got">🎉 You won 5 games! Here's a bonus chest!</p>`, onClose:go, buttons:[['Awesome!','green awesome',go]] }); }; }
+function flushChests(){ if(!S.pendingChests.length || active!=='lobby' || !$('#modal').classList.contains('hidden')) return; afterChests(()=>{ hideModal(); refreshLobby(); })(); }
 function finishMaze(){
   G.running=false; exitPointerLock(); SFX.win(); ECO.ensureDay(S);
-  const lvl=G.level, e=ECO.mazeEarn(S, G.collected, lvl); S.coins+=e.earned; S.activitiesToday++; S.bestLevel=Math.max(S.bestLevel,lvl); S.level=Math.max(S.level, lvl+1);
-  const ch=ECO.mazeChestRarity(lvl, S); if(ch) ECO.noteFreeChest(S, lvl, ch.source); save();
-  const extra = G.collected>e.credited ? `<br><small>You found ${G.collected}! Your bag holds ${ECO.mazeCollectCap(lvl)} — the rest were just for fun ✨</small>` : '';
-  const coinsHtml=`<div class="coinsum">${STAR} ${e.credited} starfish + ${e.bonus} finish bonus${e.full?'':' (½ — Ollie is sleepy)'} = <b>${e.earned}</b>${extra}</div><p class="tinfo">Time ${fmtTime(G.time)}</p>`;
-  const buttons=[['Awesome!','green awesome',quitToLobby],['NEXT LEVEL ▶','blue',()=>{ hideModal(); startMaze(lvl+1); }]];
-  if(!ch){ showModal(`<h2>LEVEL ${lvl} CLEAR!</h2>${coinsHtml}<div class="prize"><div class="ic">😴</div><div class="big">Ollie is tuckered out!</div></div><p>You opened both free chests today. Come back tomorrow for more! 🌙</p>`, buttons); confetti('#2bc0ff'); return; }
-  openChestModal(ch.rarity, { source:ch.source, milestone:ch.source==='milestone', level:lvl, title: ch.source==='milestone'?`LEVEL ${lvl} MILESTONE!`:`LEVEL ${lvl} CLEAR!`, coinsHtml, buttons });
+  const lvl=G.level, firstClear = lvl>(S.bestLevel||0), allClear = G.coins.length>0 && G.collected>=G.coins.length;
+  const e=ECO.mazeEarn(G.collected, allClear); S.coins+=e.earned; if(allClear) S.mazeAllClears++; S.bestLevel=Math.max(S.bestLevel,lvl); S.level=Math.max(S.level, lvl+1);
+  // every clear gives a chest: new level (or a not-yet-claimed milestone) = Treasure chest, replay = Play chest
+  const mile = (ECO.MILESTONE_CHEST[lvl] && !S.milestones.includes(lvl)) ? ECO.MILESTONE_CHEST[lvl] : null; const treasure = firstClear || !!mile;
+  const ch = treasure ? ECO.rollTreasureRarity(lvl, S, { milestone:mile }) : ECO.rollPlayRarity(S);
+  if(treasure) ECO.noteTreasureOpen(S, lvl, ch.source); ECO.incrementPity(S, ch.rarity, { high:ch.high });
+  const got=noteWin(); save();
+  const coinsHtml=`${allClear?ALLSTAR_HTML:''}<div class="coinsum">${STAR} ${e.credited} starfish + ${e.bonus} finish bonus${allClear?` + ${e.allClear} all-starfish bonus`:''} = <b>${e.earned}</b></div><p class="tinfo">Time ${fmtTime(G.time)}</p>${winChestHtml(got)}`;
+  const buttons=[['Awesome!','green awesome',afterChests(quitToLobby)],['NEXT LEVEL ▶','blue',afterChests(()=>{ hideModal(); startMaze(lvl+1); })]];
+  if(allClear) confetti('#ffd52e');
+  openChestModal(ch.rarity, { source:ch.source, milestone:ch.source==='milestone', level:lvl, title: ch.source==='milestone'?`LEVEL ${lvl} MILESTONE!`:`LEVEL ${lvl} CLEAR!`, coinsHtml, buttons, onClose:buttons[0][2] });
 }
 function finishRace(){
   G.running=false; exitPointerLock(); SFX.win(); const t=+G.time.toFixed(2);
-  ECO.ensureDay(S); const re=ECO.raceEarn(S, G.collected), bonus=re.bonus, earned=re.earned; S.coins+=earned; S.activitiesToday++; const prevBest=S.raceTimes[0]; S.raceTimes.push(t); S.raceTimes.sort((a,b)=>a-b); S.raceTimes=S.raceTimes.slice(0,5);
-  const newBest=!prevBest||t<prevBest; if(newBest) S.ghost=G.rec; save();
-  showModal(`<h2>${newBest?'NEW BEST TIME!':'FINISH!'}</h2><div class="prize"><div class="ic">🏁</div><div class="big">${t.toFixed(2)}s</div></div><p>${prevBest?`Best: ${Math.min(prevBest,t).toFixed(2)}s`:'Your ghost 👻 will race you next time!'}</p><div class="coinsum">${STAR} ${re.credited} starfish + ${bonus} finish bonus${re.full?'':' (½ — Ollie is sleepy)'} = <b>${earned}</b></div>`, [['RACE AGAIN','green',()=>{ hideModal(); startRace(); }],['LOBBY','blue',quitToLobby]]);
-  if(newBest) confetti('#ffd52e');
+  ECO.ensureDay(S); const allClear = G.coins.length>0 && G.collected>=G.coins.length; const re=ECO.raceEarn(G.collected, allClear), bonus=re.bonus, earned=re.earned; S.coins+=earned; if(allClear) S.raceAllClears++;
+  const prevBest=S.raceTimes[0]; S.raceTimes.push(t); S.raceTimes.sort((a,b)=>a-b); S.raceTimes=S.raceTimes.slice(0,5); // leaderboard stays time-only
+  const newBest=!prevBest||t<prevBest; if(newBest) S.ghost=G.rec; const got=noteWin(); save();
+  showModal(`<h2>${newBest?'NEW BEST TIME!':'FINISH!'}</h2><div class="prize"><div class="ic">🏁</div><div class="big">${t.toFixed(2)}s</div></div>${allClear?ALLSTAR_HTML:''}<p>${prevBest?`Best: ${Math.min(prevBest,t).toFixed(2)}s`:'Your ghost 👻 will race you next time!'}</p><div class="coinsum">${STAR} ${re.credited} starfish + ${bonus} finish bonus${allClear?` + ${re.allClear} all-starfish bonus`:''} = <b>${earned}</b></div>${winChestHtml(got)}`, [['RACE AGAIN','green',afterChests(()=>{ hideModal(); startRace(); })],['LOBBY','blue',afterChests(quitToLobby)]]);
+  if(newBest||allClear) confetti('#ffd52e');
 }
 function chestHtml(r, opt={}){ const R=RMAP[r]; const burst=opt.noBurst?'':`<div class="burst"${opt.interactive?' id="burst"':''} style="--rc:${R.color}"></div>`; return `<div class="chest-wrap${opt.mini?' mini':''}">${burst}<img class="chest-art ${r==='cosmic'?'cosmic':''}"${opt.interactive?' id="chestEl"':''} src="${artUrl('chest-'+r)}" alt="${R.name} chest" draggable="false" style="--rc:${R.color}"></div>`; }
 function pityHintHtml(){ const h=ECO.pityHint(S); return h? `<p class="pity">✨ ${RMAP[h.tier].name} chest in ${h.n}! <small>(maze chests)</small></p>` : ''; }
@@ -760,7 +775,7 @@ function bindModalX(fn){ const x=$('#modalX'); if(x) x.onclick=()=>{ SFX.click()
 function openChestModal(rarity, o){
   const R=RMAP[rarity]; const bg = rarity==='cosmic'?'linear-gradient(90deg,#7b5cff,#00e5ff,#ff5fd2)':R.color; const source=o.source||'roll';
   // roll + save immediately so a reload can't lose the prize; the show below is just presentation
-  const p=ECO.rollPrize(rarity, S); ECO.updatePityAfterOpen(S, rarity, source); save();
+  const p=ECO.rollPrize(rarity, S); save(); // economy v2: pity is moved by the caller when the chest is rolled (bought chests never move it)
   const showMs=ECO.showMs(rarity);
   const onClose = o.onClose || (()=>hideModal());
   const buttons = (o.buttons && o.buttons.length) ? o.buttons : [['Awesome!','green awesome',onClose]];
@@ -853,7 +868,7 @@ function updateGame(dt, t){
     if(G.mode==='maze') collideMaze(P.position,.5);
     else { const e=ellE(P.position.x,P.position.z); const lo=.83, hi=1.17; if(e<lo||e>hi){ const k=(e<lo?lo:hi)/e; P.position.x*=k; P.position.z*=k; } }
     // coins
-    for(const c of G.coins){ if(!c.visible) continue; if(Math.hypot(c.position.x-P.position.x,c.position.z-P.position.z)<1){ c.visible=false; G.collected++; SFX.coin(); spawnSparkles(G.scene,c.position,0xffb347,14); hudCount(); if(G.collected===bagCap()) toast('Starfish bag full! 🎒 Extra ones are just for fun ✨'); updateInfo(); } }
+    for(const c of G.coins){ if(!c.visible) continue; if(Math.hypot(c.position.x-P.position.x,c.position.z-P.position.z)<1){ c.visible=false; G.collected++; SFX.coin(); spawnSparkles(G.scene,c.position,0xffb347,14); hudCount(); updateInfo(); } }
     if(G.mode==='maze'){
       if(G.chest && P.position.distanceTo(G.chest.position)<1.6){ spawnSparkles(G.scene,G.chest.position.clone().setY(1),0xffd52e,30); finishMaze(); }
       for(const j of G.jellies){ if(Math.hypot(j.position.x-P.position.x,j.position.z-P.position.z)<.9 && !(G.hitCd>0)){ G.hitCd=1.2; SFX.bump(); const push=tmpV.subVectors(P.position,j.position).setY(0).normalize().multiplyScalar(6); G.vel.copy(push); if(G.collected>0){ G.collected--; hudCount(); updateInfo(); const back=G.coins.find(c=>!c.visible); if(back){ back.visible=true; spawnSparkles(G.scene,back.position,0xffb347,10); } } toast('Ouch! A jelly bumped you 🪼 – your starfish swam back, go grab it!'); } }
@@ -939,9 +954,20 @@ function refreshPicker(){ const m=S.mode, el=$('#lvlPick'); const show = m==='ma
   $('#lvlDown').classList.toggle('off', cur<=1); $('#lvlUp').classList.toggle('off', cur>=mx); el.classList.toggle('replay', cur<mx); }
 function stepPick(d){ const m=S.mode; if(m!=='maze'&&m!=='cards') return; const nv=Math.max(1, Math.min(pickMax(m), pickCur(m)+d)); if(nv===pickCur(m)){ SFX.miss(); if(d>0) toast(`Finish ${m==='maze'?'Level':'Round'} ${pickMax(m)} to unlock the next one! 🔓`); return; } PICK[m]=nv; SFX.click(); refreshLobby(); }
 $('#lvlDown').onclick=()=>stepPick(-1); $('#lvlUp').onclick=()=>stepPick(1);
-function refreshLobby(){ refreshCoins(); $$('.mode').forEach(b=>b.classList.toggle('sel', b.dataset.mode===S.mode)); refreshPicker(); $('#playSub').textContent = S.mode==='maze'?`Maze · Level ${pickCur('maze')}`:S.mode==='race'?'Race · beat the clock':S.mode==='sort'?'Reef Sort · match the friends':`Match Cards · Round ${pickCur('cards')}`; $('.avatar').innerHTML=`<img src="${artUrl(S.selChar||'ollie')}" alt="${(CMAP[S.selChar]||CMAP.ollie).name.split(' the ')[0]}">`; }
+function refreshLobby(){ refreshCoins(); $$('.mode').forEach(b=>b.classList.toggle('sel', b.dataset.mode===S.mode)); refreshPicker(); $('#playSub').textContent = S.mode==='maze'?`Maze · Level ${pickCur('maze')}`:S.mode==='race'?'Race · beat the clock':S.mode==='sort'?'Reef Sort · match the friends':`Match Cards · Round ${pickCur('cards')}`; $('.avatar').innerHTML=`<img src="${artUrl(S.selChar||'ollie')}" alt="${(CMAP[S.selChar]||CMAP.ollie).name.split(' the ')[0]}">`; refreshProgress(); }
+/* economy v2 lobby progress (sits next to #playRow; does not touch it) */
+function refreshProgress(){ const el=$('#lobbyProg'); if(!el) return; const L=ECO.lobbyProgress(S);
+  $('#lpChestLbl').innerHTML=`Chest in <b>${L.winsTowardChest}/${L.winsNeeded}</b> games`; $$('#lpChestBar i').forEach((x,i)=>x.classList.toggle('on', i<L.winsTowardChest));
+  $('#lpColLbl').innerHTML=`Collection <b>${L.collectionOwned}/${L.collectionTotal}</b>`; $('#lpColFill').style.width=Math.max(3,L.collectionPct)+'%';
+  const m=L.nextMilestone; $('#lpMile').innerHTML = m ? `Next milestone: <b style="color:${RMAP[m.rarity].color}">${RMAP[m.rarity].name}</b> chest at Maze Level ${m.level}` : 'All milestones found!'; }
+$('#lobbyProg').onclick=()=>{ SFX.click(); openPanel('chests'); };
 $$('.mode').forEach(b=>b.onclick=()=>{ SFX.click(); S.mode=b.dataset.mode; save(); refreshLobby(); });
-function startSort(){ active='none'; openReefSort({ ECO, S, save, onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); } }); syncMusic('sort'); }
+function startSort(){ active='none'; openReefSort({ ECO, S, save, onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('sort'); }
+// economy v2: one-time friendly notice for existing players, then any bonus chests that were waiting
+function cosmicNotice(){ S.cosmicNoticeSeen=true; save(); const done=()=>{ hideModal(); flushChests(); };
+  showModal(`<h2>MORE STARFISH! 🎉</h2><div class="prize"><div class="ic">🌌</div></div><p>Play as much as you like — every game gives starfish, and every <b>5 wins</b> opens a bonus chest! 🎁</p><p class="v2note">The super-rare <b>Cosmic</b> prizes now show up after about <b>2 weeks</b> of play, and in a special chest at <b>Maze Level 80</b>. ✨</p>`, [['YAY!','green awesome',done]], { onClose:done }); }
+setTimeout(()=>{ if(active!=='lobby' || !$('#modal').classList.contains('hidden')) return; if(!S.cosmicNoticeSeen) cosmicNotice(); else flushChests(); }, 900);
+setTimeout(()=>{ const z=window.__zkidz; if(!z) return; Object.assign(z, { flushChests, refreshProgress, finishRace, cardsWin }); Object.defineProperty(z, 'C', { get:()=>C }); }, 0); // test hooks
 $('#playBtn').onclick=()=>{ ac(); SFX.go(); if(S.mode==='maze') startMaze(pickCur('maze')); else if(S.mode==='race') startRace(); else if(S.mode==='sort') startSort(); else startCards(pickCur('cards')); };
 function openSettings(quiet){ if(!quiet) SFX.click(); const cur=S.quality||'auto'; const opt=(k,l)=>[`${k===cur?'✔ ':''}${l}`, k===cur?'green':'blue', ()=>{ S.quality=k; if(k!=='auto') autoLow=false; save(); applyQuality(); hideModal(); toast(`Graphics: ${l}`); }];
   const musicOn=musicEnabled();
@@ -1062,15 +1088,15 @@ function hScroll(t){
 function renderLB(){ const sub=panelState.lbTab||'maze'; const body=$('#panelBody'); let rows;
   if(sub==='maze'){ rows=SAMPLE_MAZE.map(([n,v])=>({n,v,sample:true})); if(S.bestLevel>0) rows.push({n:S.name,v:S.bestLevel,me:true}); rows.sort((a,b)=>b.v-a.v); }
   else { rows=SAMPLE_RACE.map(([n,v])=>({n,v,sample:true})); S.raceTimes.forEach(v=>rows.push({n:S.name,v,me:true})); rows.sort((a,b)=>a.v-b.v); }
-  body.innerHTML = tabs([['maze','🌀 Maze – best level'],['race','🏁 Race – best time']],sub) + `<table class="lb">${rows.map((r,i)=>`<tr class="${r.me?'me':''}"><td>${i+1}.</td><td>${r.me?'🦦':'🐠'} ${r.n}${r.sample?'<span class="tag">(sample)</span>':' <span class="tag">(you)</span>'}</td><td>${sub==='maze'?'Level '+r.v:r.v.toFixed(2)+'s'}</td></tr>`).join('')}</table><p class="note">Saved on this device. Sample players are placeholders until online leaderboards exist.</p>`;
+  body.innerHTML = tabs([['maze','🌀 Maze – best level'],['race','🏁 Race – best time']],sub) + `<table class="lb">${rows.map((r,i)=>`<tr class="${r.me?'me':''}"><td>${i+1}.</td><td>${r.me?'🦦':'🐠'} ${r.n}${r.sample?'<span class="tag">(sample)</span>':' <span class="tag">(you)</span>'}</td><td>${sub==='maze'?'Level '+r.v:r.v.toFixed(2)+'s'}</td></tr>`).join('')}</table>${(sub==='maze'?S.mazeAllClears:S.raceAllClears)>0?`<p class="note allstar-note">⭐ ALL STARFISH runs: <b>${sub==='maze'?S.mazeAllClears:S.raceAllClears}</b> <small>(ranking is by ${sub==='maze'?'level':'time'} only)</small></p>`:''}<p class="note">Saved on this device. Sample players are placeholders until online leaderboards exist.</p>`;
   bindTabs(k=>{ panelState.lbTab=k; renderLB(); }); }
 function dots(used,cap){ return Array.from({length:cap},(_,i)=>`<i class="${i<used?'used':''}"></i>`).join(''); }
 function renderChests(){ ECO.ensureDay(S); const body=$('#panelBody'); const desc={common:'A simple wooden chest',uncommon:'Aqua ocean theme',rare:'Forest theme',epic:'Music pop vibes',mythic:'Volcanic theme',ultra:'Silvery high-end kingdom',legendary:'Heavenly gold',cosmic:'Futuristic outer space'};
-  const freeLeft=Math.max(0,ECO.FREE_CHEST_DAILY_CAP-S.freeChestsToday), buyLeft=Math.max(0,ECO.BOUGHT_CHEST_DAILY_CAP-S.boughtChestsToday); const h=ECO.pityHint(S), nm=ECO.nextMilestone(S);
+  const wins=S.winsTowardChest||0; const h=ECO.pityHint(S), nm=ECO.nextMilestone(S);
   const bgOf=r=>r==='cosmic'?'linear-gradient(160deg,#3a1a8a,#1a7fbf,#a03aa8)':`linear-gradient(160deg,${RMAP[r].color},${shade(RMAP[r].color)})`;
   body.innerHTML = `<div class="econ-bar">
-    <div class="ec-box"><b>🎁 Free maze chests</b><div class="dots">${dots(Math.min(S.freeChestsToday,2),ECO.FREE_CHEST_DAILY_CAP)}</div><span>${freeLeft?`${freeLeft} left today — finish a maze!`:'All opened! Come back tomorrow for more! 🌙'}</span></div>
-    <div class="ec-box"><b>🛒 Shop chests</b><div class="dots">${dots(S.boughtChestsToday,ECO.BOUGHT_CHEST_DAILY_CAP)}</div><span>${buyLeft?`${buyLeft} left today`:'Come back tomorrow for more! 🌙'}</span></div>
+    <div class="ec-box"><b>🎁 Win chest</b>${winDots(wins)}<span>Chest in ${wins}/${ECO.WINS_PER_CHEST} games — any game counts!</span></div>
+    <div class="ec-box"><b>🌀 Maze chests</b><span>Every maze clear gives a chest! New levels give Treasure chests.</span></div>
     <div class="ec-box"><b>🐚 Luck shell</b><div class="meter"><i style="width:${Math.round(ECO.cosmicLuck(S)*100)}%"></i></div><span>${h?`✨ ${RMAP[h.tier].name} chest in ${h.n}!`:''}</span></div></div>
     ${nm?`<p class="note ms-note">🏆 Clear <b>Level ${nm.level}</b> for a guaranteed <b>${RMAP[nm.rarity].name}</b> chest!</p>`:''}
     <div class="grid chest-grid">${RARITIES.map(R=>{ const sale=ECO.CHEST_FOR_SALE.includes(R.id); return `<div class="item ${sale?'':'lock'}" data-r="${R.id}" style="background:${bgOf(R.id)}">${rarityBadge(R.id)}${chestHtml(R.id,{mini:true,noBurst:true})}<div class="nm">${R.name}</div><small style="text-align:center">${desc[R.id]}</small>${sale?`<div class="price">${STAR} ${CHEST_PRICE[R.id]}</div>`:'<div class="price locked">🌀 Maze only</div>'}</div>`; }).join('')}</div>
@@ -1078,9 +1104,8 @@ function renderChests(){ ECO.ensureDay(S); const body=$('#panelBody'); const des
     <p class="note">Most chests are Common or Uncommon. Deeper mazes hide rarer surprises — and a Cosmic friend always shows up if you've been looking for a while. <button class="btn small blue" id="oddsBtn">ODDS (grown-ups)</button></p>`;
   $$('#panelBody .chest-grid .item').forEach(el=>el.onclick=()=>{ ECO.ensureDay(S); const r=el.dataset.r;
     if(!ECO.CHEST_FOR_SALE.includes(r)){ toast(`${RMAP[r].name} chests come from mazes! 🌀`); return; }
-    if(S.boughtChestsToday>=ECO.BOUGHT_CHEST_DAILY_CAP){ SFX.miss(); toast('That\'s 2 shop chests today. Come back tomorrow for more! 🌙'); return; }
     const cost=CHEST_PRICE[r]; if(S.coins<cost){ SFX.miss(); toast(`Need ${cost-S.coins} more starfish ${STAR}`); return; }
-    S.coins-=cost; S.boughtChestsToday++; save(); const back=()=>{ hideModal(); renderChests(); }; openChestModal(r,{source:'bought', title:`${RMAP[r].name.toUpperCase()} CHEST`, onClose:back, buttons:[['Awesome!','green awesome',back]]}); });
+    S.coins-=cost; save(); const back=()=>{ hideModal(); renderChests(); }; openChestModal(r,{source:'bought', title:`${RMAP[r].name.toUpperCase()} CHEST`, onClose:back, buttons:[['Awesome!','green awesome',back]]}); });
   $$('#panelBody [data-craft]').forEach(b=>b.onclick=()=>{ SFX.click(); craftPicker(b.dataset.craft); });
   $('#oddsBtn').onclick=()=>{ SFX.click(); oddsModal(); }; }
 function craftPicker(t){ const gaps=ECO.tierGaps(S,t); const R=RMAP[t];
@@ -1089,8 +1114,8 @@ function craftPicker(t){ const gaps=ECO.tierGaps(S,t); const R=RMAP[t];
     const back=()=>{ hideModal(); renderChests(); }; showModal(`<h2>CRAFTED!</h2><div class="prize">${iconHtml(p.x)}<div class="big">${p.x.name}</div><span class="rbadge" style="background:${R.color}">${R.name}</span></div>`, [['Awesome!','green awesome',back]], { onClose:back }); }); }
 function oddsModal(){ const pct=v=>(v*100).toFixed(v<.01?1:v<.1?1:0)+'%';
   showModal(`<h2>CHEST ODDS</h2><div class="odds"><table><tr><th>Maze levels</th>${RARITIES.map(R=>`<th>${R.name}</th>`).join('')}</tr>${ECO.LEVEL_BANDS.map(b=>`<tr><td>${b.name} (${b.min}${b.max===Infinity?'+':'–'+b.max})</td>${ECO.TIERS.map(t=>`<td>${pct(b.odds[t])}</td>`).join('')}</tr>`).join('')}</table>
-  <p>Guarantees on free maze chests: Rare within 8, Epic within 13, Mythic 17, Ultra Rare 21, Legendary 25 (15 once you have one), Cosmic 37 (19 once you have one; odds rise from chest 20). Milestones: Level 5 Rare, 10 Epic, 20 Mythic, 30 Ultra Rare, 40 Legendary, 50 Cosmic. First chest is at least Uncommon.</p>
-  <p>Shop chests (Common/Uncommon/Rare only) give exactly the chest you pick — max 2 a day, starfish only, no real money. Free maze chests: 2 a day. Repeats give starfish back and a shell shard.</p></div>`, [['CLOSE','gray',hideModal]]); }
+  <p>Every maze clear gives a chest! A new level gives a Treasure chest (odds above). Replays and the bonus chest you get every 5 wins are Play chests: Common 50%, Uncommon 28%, Rare 13%, Epic 6%, Mythic 2%, Ultra Rare 1%. Guarantees: Rare within 8 chests, Epic 13, Mythic 17, Ultra Rare 21. Legendary 25 (15 once you have one) and Cosmic 37 (19 once you have one; odds rise from chest 20) count your first new-level chest each day. Cosmic prizes can show up after 14 days of play. Milestones: Level 5 Rare, 10 Epic, 20 Mythic, 30 Ultra Rare, 40 Legendary, 80 Cosmic. First chest is at least Uncommon.</p>
+  <p>Shop chests (Common/Uncommon/Rare only) give exactly the chest you pick — starfish only, no real money. Repeats give starfish back and a shell shard.</p></div>`, [['CLOSE','gray',hideModal]]); }
 
 /* ===================== MATCH CARDS ===================== */
 const CARD_POOL = CHARS.filter(c=>c.id!=='hammy' && c.id!=='wade');
@@ -1112,8 +1137,8 @@ function flipCard(el){ if(C.missT && !C.missT.pair.includes(el) && !el.classList
   if(C.open.length===2){ C.moves++; $('#cardsMoves').textContent=C.moves; const [a,b]=C.open; const ca=C.deck[a.dataset.i], cb=C.deck[b.dataset.i];
     if(ca.id===cb.id){ C.open=[]; C.done++; const last=C.done===C.pairs; setTimeout(()=>{ a.classList.add('done'); b.classList.add('done'); SFX.match(); if(last) setTimeout(cardsWin,350); },300); } // Zinigames: clear open pair now so a fast 3rd tap can't get stuck face-up
     else { C.lock=true; const pair=[a,b]; C.missT={pair, s:setTimeout(()=>{ SFX.miss(); a.classList.add('shake'); b.classList.add('shake'); },450), b:setTimeout(()=>{ C.missT=null; a.classList.remove('up','shake'); b.classList.remove('up','shake'); C.open=[]; C.lock=false; },1000)}; } } }
-function cardsWin(){ clearInterval(C.iv); const secs=C.t0?Math.round((performance.now()-C.t0)/1000):0; const perfect=C.pairs; const bonus=Math.max(0, C.pairs*3 - (C.moves-perfect)); ECO.ensureDay(S); const ce=ECO.cardsEarn(S, 10+C.pairs*2+bonus), earned=ce.earned; S.coins+=earned; S.activitiesToday++; S.cardsRound=Math.max(S.cardsRound, C.round+1); save(); SFX.win(); confetti('#2ee6d6');
-  showModal(`<h2>ALL MATCHED!</h2><div class="prize"><div class="ic">🃏</div><div class="big">${C.moves} moves · ${secs}s</div></div><div class="coinsum">${STAR} ${10+C.pairs*2} for finishing + ${bonus} sharp-memory bonus${ce.full?'':' (½ — Ollie is sleepy)'} = <b>${earned}</b></div>`, [['NEXT ROUND','green',()=>{ hideModal(); startCards(C.round+1); }],['LOBBY','blue',()=>{ hideModal(); quitToLobby(); }]]); }
+function cardsWin(){ clearInterval(C.iv); const secs=C.t0?Math.round((performance.now()-C.t0)/1000):0; const perfect=C.pairs; const bonus=Math.max(0, C.pairs*3 - (C.moves-perfect)); ECO.ensureDay(S); const ce=ECO.cardsEarn(ECO.CARDS_BASE+C.pairs*2+bonus), earned=ce.earned; S.coins+=earned; S.cardsRound=Math.max(S.cardsRound, C.round+1); const got=noteWin(); save(); SFX.win(); confetti('#2ee6d6');
+  showModal(`<h2>ALL MATCHED!</h2><div class="prize"><div class="ic">🃏</div><div class="big">${C.moves} moves · ${secs}s</div></div><div class="coinsum">${STAR} ${ECO.CARDS_BASE+C.pairs*2} for finishing + ${bonus} sharp-memory bonus = <b>${earned}</b></div>${winChestHtml(got)}`, [['NEXT ROUND','green',afterChests(()=>{ hideModal(); startCards(C.round+1); })],['LOBBY','blue',afterChests(()=>{ hideModal(); quitToLobby(); })]]); }
 $('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quitToLobby(); };
 
 /* ===================== INIT ===================== */
