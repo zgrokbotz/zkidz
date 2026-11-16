@@ -1,14 +1,15 @@
 // ZKIDZ – Ocean Maze prototype. Three.js, no build step.
-import * as THREE from './vendor/three.module.min.js?v=20261116-8';
-import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-8';
-import * as ECO from './economy.js?v=20261116-8';
-import { openReefSort } from './sort/reef-sort.js?v=20261116-8';
-import { openReefDiner } from './dash/dash.js?v=20261116-8';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-8';
-import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-8';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-8';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-8';
-import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-8';
+import * as THREE from './vendor/three.module.min.js?v=20261116-9';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-9';
+import * as ECO from './economy.js?v=20261116-9';
+import { openReefSort } from './sort/reef-sort.js?v=20261116-9';
+import { openReefDiner } from './dash/dash.js?v=20261116-9';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-9';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-9';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-9';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-9';
+import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-9';
+import * as LB from './lb.js?v=20261116-9';
 
 /* ===================== DATA ===================== */
 const RARITIES = [
@@ -159,7 +160,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-8';
+const ASSET_V = '20261116-9';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -797,6 +798,7 @@ function finishMaze(){
   const ch = treasure ? ECO.rollTreasureRarity(lvl, S, { milestone:mile }) : ECO.rollPlayRarity(S);
   if(treasure) ECO.noteTreasureOpen(S, lvl, ch.source); ECO.incrementPity(S, ch.rarity, { high:ch.high });
   const got=noteWin(); save();
+  try{ LB.offerSubmit('maze', S.bestLevel); }catch(e){}
   const coinsHtml=`${allClear?ALLSTAR_HTML:''}<div class="coinsum">${STAR} ${e.credited} starfish + ${e.bonus} finish bonus${allClear?` + ${e.allClear} all-starfish bonus`:''} = <b>${e.earned}</b></div><p class="tinfo">Time ${fmtTime(G.time)}</p>${winChestHtml(got)}`;
   const buttons=[['Awesome!','green awesome',afterChests(quitToLobby)],['NEXT LEVEL ▶','blue',afterChests(()=>{ hideModal(); startMaze(lvl+1); })]];
   if(allClear) confetti('#ffd52e');
@@ -807,6 +809,7 @@ function finishRace(){
   ECO.ensureDay(S); const allClear = G.coins.length>0 && G.collected>=G.coins.length; const re=ECO.raceEarn(G.collected, allClear), bonus=re.bonus, earned=re.earned; S.coins+=earned; if(allClear) S.raceAllClears++;
   const prevBest=S.raceTimes[0]; S.raceTimes.push(t); S.raceTimes.sort((a,b)=>a-b); S.raceTimes=S.raceTimes.slice(0,5); // leaderboard stays time-only
   const newBest=!prevBest||t<prevBest; if(newBest) S.ghost=G.rec; const got=noteWin(); save();
+  try{ if(S.raceTimes[0]) LB.offerSubmit('race', Math.round(S.raceTimes[0]*1000)); }catch(e){}
   showModal(`<h2>${newBest?'NEW BEST TIME!':'FINISH!'}</h2><div class="prize"><div class="ic">🏁</div><div class="big">${t.toFixed(2)}s</div></div>${allClear?ALLSTAR_HTML:''}<p>${prevBest?`Best: ${Math.min(prevBest,t).toFixed(2)}s`:'Your ghost 👻 will race you next time!'}</p><div class="coinsum">${STAR} ${re.credited} starfish + ${bonus} finish bonus${allClear?` + ${re.allClear} all-starfish bonus`:''} = <b>${earned}</b></div>${winChestHtml(got)}`, [['RACE AGAIN','green',afterChests(()=>{ hideModal(); startRace(); })],['LOBBY','blue',afterChests(quitToLobby)]]);
   if(newBest||allClear) confetti('#ffd52e');
 }
@@ -1071,9 +1074,9 @@ function refreshProgress(){ const el=$('#lobbyProg'); if(!el) return; const L=EC
   const m=L.nextMilestone; $('#lpMile').innerHTML = m ? `Next milestone: <b style="color:${RMAP[m.rarity].color}">${RMAP[m.rarity].name}</b> chest at Maze Level ${m.level}` : 'All milestones found!'; }
 $('#lobbyProg').onclick=()=>{ SFX.click(); openPanel('chests'); };
 $$('.mode').forEach(b=>b.onclick=()=>{ SFX.click(); S.mode=b.dataset.mode; save(); refreshLobby(); });
-function startSort(){ active='none'; openReefSort({ ECO, S, save, onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('sort'); }
-function startDash(){ active='none'; openReefDiner({ ECO, S, save, artUrl, chars:CHARS, waiterId:S.selChar||'ollie', sfxOn:()=>S.music!==false, onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('play'); }
-function startHide(){ active='none'; openHideSeek({ ECO, S, save, artUrl, chars:CHARS, seekerId:S.selChar||'ollie', sfxOn:()=>S.music!==false, onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('sort'); }
+function startSort(){ active='none'; openReefSort({ ECO, S, save, onWin:()=>{ const ret={ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }; queueMicrotask(()=>{ try{ const loc=LB.localScores(); if(loc.sort) LB.offerSubmit('sort', loc.sort); }catch(e){} }); return ret; }, onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('sort'); }
+function startDash(){ active='none'; openReefDiner({ ECO, S, save, artUrl, chars:CHARS, waiterId:S.selChar||'ollie', sfxOn:()=>S.music!==false, onWin:()=>{ try{ const loc=LB.localScores(); if(loc.diner) LB.offerSubmit('diner', loc.diner); }catch(e){} return { chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }; }, onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('play'); }
+function startHide(){ active='none'; openHideSeek({ ECO, S, save, artUrl, chars:CHARS, seekerId:S.selChar||'ollie', sfxOn:()=>S.music!==false, onWin:()=>{ try{ const loc=LB.localScores(); if(loc.hide) LB.offerSubmit('hide', loc.hide); }catch(e){} return { chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }; }, onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('sort'); }
 // economy v2: one-time friendly notice for existing players, then any bonus chests that were waiting
 function cosmicNotice(){ S.cosmicNoticeSeen=true; save(); const done=()=>{ hideModal(); flushChests(); };
   showModal(`<h2>MORE STARFISH! 🎉</h2><div class="prize"><div class="ic">🌌</div></div><p>Play as much as you like — every game gives starfish, and every <b>5 wins</b> opens a bonus chest! 🎁</p><p class="v2note">The super-rare <b>Cosmic</b> prizes now show up after about <b>2 weeks</b> of play, and in a special chest at <b>Maze Level 80</b>. ✨</p>`, [['YAY!','green awesome',done]], { onClose:done }); }
@@ -1196,11 +1199,31 @@ function hScroll(t){
   t.addEventListener('pointermove', e=>{ if(!down) return; const dx=e.clientX-down.x; if(Math.abs(dx)>5 && t.dataset.dragged!=='1'){ t.dataset.dragged='1'; try{ t.setPointerCapture(down.id); }catch(_){} } if(t.dataset.dragged==='1') t.scrollLeft=down.s-dx; });
   const end=()=>{ if(down){ down=null; setTimeout(()=>t.dataset.dragged='0',0); } }; t.addEventListener('pointerup', end); t.addEventListener('pointercancel', end); t.addEventListener('lostpointercapture', end);
 }
-function renderLB(){ const sub=panelState.lbTab||'maze'; const body=$('#panelBody'); let rows;
-  if(sub==='maze'){ rows=SAMPLE_MAZE.map(([n,v])=>({n,v,sample:true})); if(S.bestLevel>0) rows.push({n:S.name,v:S.bestLevel,me:true}); rows.sort((a,b)=>b.v-a.v); }
-  else { rows=SAMPLE_RACE.map(([n,v])=>({n,v,sample:true})); S.raceTimes.forEach(v=>rows.push({n:S.name,v,me:true})); rows.sort((a,b)=>a.v-b.v); }
-  body.innerHTML = tabs([['maze','🌀 Maze – best level'],['race','🏁 Race – best time']],sub) + `<table class="lb">${rows.map((r,i)=>`<tr class="${r.me?'me':''}"><td>${i+1}.</td><td>${r.me?'🦦':'🐠'} ${r.n}${r.sample?'<span class="tag">(sample)</span>':' <span class="tag">(you)</span>'}</td><td>${sub==='maze'?'Level '+r.v:r.v.toFixed(2)+'s'}</td></tr>`).join('')}</table>${(sub==='maze'?S.mazeAllClears:S.raceAllClears)>0?`<p class="note allstar-note">⭐ ALL STARFISH runs: <b>${sub==='maze'?S.mazeAllClears:S.raceAllClears}</b> <small>(ranking is by ${sub==='maze'?'level':'time'} only)</small></p>`:''}<p class="note">Saved on this device. Sample players are placeholders until online leaderboards exist.</p>`;
-  bindTabs(k=>{ panelState.lbTab=k; renderLB(); }); }
+function hookLB(){ LB.initLB({ getS:()=>S, save, artUrl, lookThumb, isAppleTouch, toast, click:()=>SFX.click() }); }
+function renderLB(){
+  hookLB();
+  const sub=panelState.lbTab||'maze';
+  const body=$('#panelBody');
+  const gen = ++renderLB._gen || (renderLB._gen=1);
+  renderLB._gen = gen;
+  body.innerHTML = tabs(LB.LB_TABS, sub) + `<div id="lbJoinSlot"></div><div id="lbTableSlot"><p class="note">Loading the ocean board…</p></div>`;
+  bindTabs(k=>{ panelState.lbTab=k; renderLB(); });
+  (async ()=>{
+    if(!LB.hasNick()){
+      let names=['SunnyOtter','CoralRay','HappyPuff'];
+      try{ names=await LB.suggestNames(3); }catch(e){}
+      if(renderLB._gen!==gen) return;
+      const slot=$('#lbJoinSlot');
+      if(slot){ slot.innerHTML=LB.pickerHtml(names, S.lbNick||S._lbPendingNick||'', ''); LB.bindPicker(()=>renderLB()); }
+    }
+    const board=await LB.loadRows(sub);
+    if(renderLB._gen!==gen) return;
+    const slot=$('#lbTableSlot');
+    if(!slot) return;
+    const bodyRows = board.rows.length ? board.rows.map((r,i)=>LB.rowHtml(r,i,sub)).join('') : '<tr><td colspan="3">No scores yet — be the first!</td></tr>';
+    slot.innerHTML = `<table class="lb">${bodyRows}</table>${LB.noteFor(board,sub,S)}`;
+  })();
+}
 function dots(used,cap){ return Array.from({length:cap},(_,i)=>`<i class="${i<used?'used':''}"></i>`).join(''); }
 function renderChests(){ ECO.ensureDay(S); const body=$('#panelBody'); const desc={common:'A simple wooden chest',uncommon:'Aqua ocean theme',rare:'Forest theme',epic:'Music pop vibes',mythic:'Volcanic theme',ultra:'Silvery high-end kingdom',legendary:'Heavenly gold',cosmic:'Futuristic outer space'};
   const wins=S.winsTowardChest||0; const h=ECO.pityHint(S), nm=ECO.nextMilestone(S);
@@ -1248,11 +1271,14 @@ function flipCard(el){ if(C.missT && !C.missT.pair.includes(el) && !el.classList
   if(C.open.length===2){ C.moves++; $('#cardsMoves').textContent=C.moves; const [a,b]=C.open; const ca=C.deck[a.dataset.i], cb=C.deck[b.dataset.i];
     if(ca.id===cb.id){ C.open=[]; C.done++; const last=C.done===C.pairs; setTimeout(()=>{ a.classList.add('done'); b.classList.add('done'); SFX.match(); if(last) setTimeout(cardsWin,350); },300); } // Zinigames: clear open pair now so a fast 3rd tap can't get stuck face-up
     else { C.lock=true; const pair=[a,b]; C.missT={pair, s:setTimeout(()=>{ SFX.miss(); a.classList.add('shake'); b.classList.add('shake'); },450), b:setTimeout(()=>{ C.missT=null; a.classList.remove('up','shake'); b.classList.remove('up','shake'); C.open=[]; C.lock=false; },1000)}; } } }
-function cardsWin(){ clearInterval(C.iv); const secs=C.t0?Math.round((performance.now()-C.t0)/1000):0; const perfect=C.pairs; const bonus=Math.max(0, C.pairs*3 - (C.moves-perfect)); ECO.ensureDay(S); const ce=ECO.cardsEarn(ECO.CARDS_BASE+C.pairs*2+bonus), earned=ce.earned; S.coins+=earned; S.cardsRound=Math.max(S.cardsRound, C.round+1); const got=noteWin(); save(); SFX.win(); confetti('#2ee6d6');
+function cardsWin(){ clearInterval(C.iv); const secs=C.t0?Math.round((performance.now()-C.t0)/1000):0; const perfect=C.pairs; const bonus=Math.max(0, C.pairs*3 - (C.moves-perfect)); ECO.ensureDay(S); const ce=ECO.cardsEarn(ECO.CARDS_BASE+C.pairs*2+bonus), earned=ce.earned; S.coins+=earned; S.cardsRound=Math.max(S.cardsRound, C.round+1); const got=noteWin(); save();
+  try{ LB.offerSubmit('match', Math.max(1, C.round)); }catch(e){} SFX.win(); confetti('#2ee6d6');
   showModal(`<h2>ALL MATCHED!</h2><div class="prize"><div class="ic">🃏</div><div class="big">${C.moves} moves · ${secs}s</div></div><div class="coinsum">${STAR} ${ECO.CARDS_BASE+C.pairs*2} for finishing + ${bonus} sharp-memory bonus = <b>${earned}</b></div>${winChestHtml(got)}`, [['NEXT ROUND','green',afterChests(()=>{ hideModal(); startCards(C.round+1); })],['LOBBY','blue',afterChests(()=>{ hideModal(); quitToLobby(); })]]); }
 $('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quitToLobby(); };
 
 /* ===================== INIT ===================== */
 resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
+hookLB();
+window.__zkidzLB = LB;
 window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, startDash, startHide, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, lobbyProbe, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
