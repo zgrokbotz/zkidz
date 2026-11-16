@@ -410,7 +410,7 @@ export function openReefDiner(opts={}){
   if(!document.getElementById('reefDashCss') && !opts.noCss){
     const l=document.createElement('link');
     l.id='reefDashCss'; l.rel='stylesheet';
-    l.href=new URL('./dash.css?v=20261116-5', import.meta.url).href;
+    l.href=new URL('./dash.css?v=20261116-6', import.meta.url).href;
     document.head.appendChild(l);
   }
 

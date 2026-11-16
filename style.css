@@ -27,8 +27,8 @@ button{font-family:var(--font);cursor:pointer;border:none;color:#fff}
 .avatar{width:calc(var(--u)*7);height:calc(var(--u)*7);border-radius:calc(var(--u)*1.4);background:linear-gradient(#7fd3ff,#2f8fe0);border:calc(var(--u)*.4) solid var(--ink);display:grid;place-items:center;font-size:calc(var(--u)*4.6)}
 .pname{font-size:calc(var(--u)*3)}
 .trophy{background:rgba(15,25,60,.85);border-radius:999px;padding:0 calc(var(--u)*1.4);font-size:calc(var(--u)*2.6);color:#ffd84a;border:calc(var(--u)*.3) solid var(--ink)}
-.logo{position:absolute;left:50%;top:calc(var(--u)*5);transform:translateX(-50%) rotate(-3deg);font-size:calc(var(--u)*11);color:#ffd52e;letter-spacing:2px;line-height:1;text-shadow:0 calc(var(--u)*.9) 0 #b8590a,0 calc(var(--u)*1.5) 0 var(--ink),4px 4px 0 var(--ink),-4px 4px 0 var(--ink),4px -4px 0 var(--ink),-4px -4px 0 var(--ink);pointer-events:none;animation:bob 2.4s ease-in-out infinite}
-@keyframes bob{50%{transform:translateX(-50%) rotate(-3deg) translateY(-6px)}}
+.logo{position:absolute;left:50%;top:max(6px, env(safe-area-inset-top, 0px));transform:translateX(-50%) rotate(-2deg);font-size:clamp(26px, 4.6vh, 44px);color:#ffd52e;letter-spacing:1px;line-height:1;z-index:4;text-shadow:0 .08em 0 #b8590a,0 .14em 0 var(--ink),.06em .06em 0 var(--ink),-.06em .06em 0 var(--ink),.06em -.06em 0 var(--ink),-.06em -.06em 0 var(--ink);pointer-events:none;animation:none}
+@keyframes bob{50%{transform:translateX(-50%) rotate(-2deg) translateY(-3px)}}
 .side{position:absolute;top:calc(var(--u)*13);display:flex;flex-direction:column;gap:calc(var(--u)*1.6)}
 .side.left{left:calc(var(--u)*2.5)}.side.right{right:calc(var(--u)*2.5)}
 .sq{width:calc(var(--u)*13);height:calc(var(--u)*9.5);background:linear-gradient(#4aa8ff,#1e62c9);border:calc(var(--u)*.45) solid var(--ink);border-radius:calc(var(--u)*2);box-shadow:0 calc(var(--u)*.6) 0 var(--ink),inset 0 calc(var(--u)*.6) 0 rgba(255,255,255,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:calc(var(--u)*1.9);gap:2px}
@@ -162,7 +162,7 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 @keyframes rotfade{0%,70%{opacity:1}100%{opacity:0}}
 #toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:rgba(10,25,70,.9);border:3px solid var(--ink);padding:10px 24px;border-radius:999px;font-size:calc(var(--u)*3);z-index:70;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 #toast.on{opacity:1}
-@media (orientation:portrait){:root{--u:min(1.25vw,1.2vh)} .side{top:calc(var(--u)*28)} .logo{top:calc(var(--u)*10)}}
+@media (orientation:portrait){:root{--u:min(1.25vw,1.2vh)} .side{top:calc(var(--u)*28)} .logo{top:max(6px, env(safe-area-inset-top, 0px));font-size:clamp(26px, 4.2vh, 40px)}}
 #panel.closet{pointer-events:none}
 #panel.closet>*{pointer-events:auto}
 .prize>*:not(.burst){position:relative}
@@ -536,7 +536,7 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
   #lobbyDock #playBtn,#lobbyDock .btn.big{min-height:44px;width:100%;max-width:100%;font-size:calc(var(--u)*5.2);padding:calc(var(--u)*.7) calc(var(--u)*2)}
   #lobby .side{top:calc(14% + env(safe-area-inset-top,0px));z-index:3}
   #lobby .sq{min-width:44px;min-height:44px}
-  #lobby .logo{top:calc(var(--u)*11 + env(safe-area-inset-top,0px));font-size:calc(var(--u)*8.5)}
+  #lobby .logo{top:max(6px, env(safe-area-inset-top,0px));font-size:clamp(26px, 4.2vh, 40px);letter-spacing:.5px;line-height:1;animation:none;z-index:4;transform:translateX(-50%) rotate(-2deg)}
   #lobby .top-left,#lobby .top-right{top:calc(var(--u)*2 + env(safe-area-inset-top,0px))}
 }
 /* Landscape phones: shrink the ZKIDZ banner and sit it in the top bar, above the character. */
@@ -582,3 +582,37 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 #webglRecover p{margin:0 0 14px;font-size:18px;text-shadow:0 2px 0 var(--ink)}
 #webglRecover .btn{min-width:200px;min-height:48px}
 
+/* ===== lobby desktop / iPad landscape: clamp sizes so buttons never overlap,
+   labels (LEADERBOARD) stay unclipped, and the ZKIDZ banner lives in the top bar
+   above the character. Portrait phone/iPad keep the #lobbyDock layout. ===== */
+#lobby .sq{overflow:hidden;white-space:nowrap;box-sizing:border-box}
+#lobby #playBtn, #lobby .btn.big{overflow:visible}
+@media (orientation:portrait){
+  #lobby .sq{width:clamp(86px, 22vw, 148px);font-size:clamp(8px, 2.1vw, 13px);padding-left:3px;padding-right:3px;letter-spacing:0}
+}
+@media (orientation:landscape) and (min-height:501px){
+  #lobby .top-left, #lobby .top-right{top:clamp(8px, 1.2vh, 16px)}
+  #lobby .avatar{width:clamp(44px, 4.6vw, 60px);height:clamp(44px, 4.6vw, 60px);font-size:clamp(22px, 2.4vw, 32px);border-radius:clamp(8px, 1vw, 12px)}
+  #lobby .pname{font-size:clamp(16px, 1.5vw, 22px)}
+  #lobby .trophy{font-size:clamp(12px, 1.2vw, 16px);padding:0 clamp(8px, 0.8vw, 12px)}
+  #lobby .gear{width:clamp(44px, 4.2vw, 52px);height:clamp(44px, 4.2vw, 52px);font-size:clamp(20px, 2vw, 28px);border-radius:clamp(8px, 1vw, 12px)}
+  #lobby .top-right .pill{font-size:clamp(16px, 1.6vw, 22px);padding:clamp(3px, 0.5vh, 6px) clamp(10px, 1vw, 16px) clamp(3px, 0.5vh, 6px) clamp(4px, 0.4vw, 8px)}
+  #lobby .side{top:clamp(88px, 12vh, 120px);bottom:max(200px, 32vh);gap:clamp(8px, 1.2vh, 14px);justify-content:flex-start}
+  #lobby .side.left{left:clamp(12px, 1.6vw, 24px)}
+  #lobby .side.right{right:clamp(12px, 1.6vw, 24px)}
+  #lobby .sq{width:clamp(110px, 10.5vw, 140px);height:auto;min-height:44px;max-height:100px;font-size:clamp(11px, 1.05vw, 13px);padding:clamp(4px, 0.6vh, 8px) 6px clamp(6px, 0.7vh, 10px);gap:2px}
+  #lobby .sq span{font-size:clamp(22px, 2.3vw, 30px)}
+  #lobby .shop-stand .shop-svg, #lobby .shop-svg{width:clamp(28px, 3vw, 40px);height:clamp(24px, 2.6vw, 36px)}
+  #lobby .modes{right:clamp(12px, 1.6vw, 24px);bottom:clamp(12px, 2vh, 22px);width:clamp(210px, 22vw, 280px);padding:clamp(6px, 0.9vh, 10px);gap:clamp(4px, 0.55vh, 8px)}
+  #lobby .modes::before{font-size:clamp(11px, 1.2vw, 14px);margin-bottom:2px}
+  #lobby .mode{font-size:clamp(11px, 1.15vw, 15px);padding:clamp(5px, 0.55vh, 8px) 6px;min-height:44px}
+  #lobby .lobby-prog{left:clamp(12px, 1.6vw, 24px);bottom:clamp(12px, 2vh, 22px);width:clamp(220px, 26vw, 340px);padding:clamp(8px, 1vh, 12px) clamp(10px, 1.1vw, 14px);gap:clamp(4px, 0.6vh, 8px)}
+  #lobby .lpg-lbl{font-size:clamp(11px, 1.15vw, 14px);white-space:nowrap}
+  #lobby .lpg-mile{font-size:clamp(10px, 1.05vw, 13px)}
+  #playRow{max-width:min(36vw, 400px, calc(100vw - 28vw - 280px));bottom:clamp(12px, 2vh, 22px)}
+  #playRow .btn.big, #lobby #playBtn{font-size:clamp(32px, 5.4vh, 52px);padding:clamp(6px, 0.8vh, 12px) clamp(20px, 3vw, 40px);overflow:visible}
+  #playRow .btn.big small{font-size:clamp(12px, 1.4vw, 16px)}
+}
+@media (min-width:1500px) and (orientation:landscape) and (min-height:501px){
+  #lobby .modes{width:clamp(300px, 28vw, 420px)}
+}

@@ -2,7 +2,7 @@
  * Usage (inside the main game):  import { openHideSeek } from './hide/hide-seek.js';
  *   openHideSeek({ ECO, S, save, artUrl, chars, seekerId, sfxOn, onWin, onExit });
  * Self-contained: own CSS (#hideSeek scope), own save key (zkidz_hide_v1), WebAudio SFX (no files), no CDNs. */
-import { ZONES, LEVELS, STORY_LEVELS, levelConfig } from './levels.js?v=20261116-5';
+import { ZONES, LEVELS, STORY_LEVELS, levelConfig } from './levels.js?v=20261116-6';
 
 /* ================= ECONOMY — approved by Zander (Zokenomics' final Hide & Seek numbers) ================= */
 export const HS_FIRST_CLEAR       = 25;   // story level, first clear: 25 + 2 per hider
@@ -128,7 +128,7 @@ function makeCaustics(){
 /* ================= public API ================= */
 export function openHideSeek(opts={}){
   if(H) closeHideSeek();
-  if(!document.getElementById('hideSeekCss') && !opts.noCss){ const l=document.createElement('link'); l.id='hideSeekCss'; l.rel='stylesheet'; l.href=new URL('./hide-seek.css?v=20261116-5', import.meta.url).href; document.head.appendChild(l); }
+  if(!document.getElementById('hideSeekCss') && !opts.noCss){ const l=document.createElement('link'); l.id='hideSeekCss'; l.rel='stylesheet'; l.href=new URL('./hide-seek.css?v=20261116-6', import.meta.url).href; document.head.appendChild(l); }
   const seekerId=opts.seekerId||(opts.S&&opts.S.selChar)||'ollie';
   let pool=(opts.chars||[]).filter(c=>c&&c.art!==false&&c.id);
   if(!pool.length) pool=FALLBACK_IDS.map(id=>({id, name:id[0].toUpperCase()+id.slice(1), color:'#4aa3df'}));

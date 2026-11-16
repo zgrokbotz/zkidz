@@ -3,11 +3,11 @@ import * as THREE from './vendor/three.module.min.js';
 import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js';
 import * as ECO from './economy.js';
 import { openReefSort } from './sort/reef-sort.js';
-import { openReefDiner } from './dash/dash.js?v=20261116-5';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-5';
+import { openReefDiner } from './dash/dash.js?v=20261116-6';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-6';
 import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-5';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-5';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-6';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-6';
 import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js';
 
 /* ===================== DATA ===================== */
@@ -159,7 +159,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-5';
+const ASSET_V = '20261116-6';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -957,9 +957,31 @@ function updateLobby(dt,t){ uOcc.on.value=0;
   const portrait=innerWidth<innerHeight, phoneLand=!portrait && innerHeight<=500, phonePort=portrait && innerWidth<=600;
   if(window.__lobbyCam){ camera.position.fromArray(window.__lobbyCam[0]); camera.lookAt(...window.__lobbyCam[1]); }
   else if(viewOffsetMode){ camera.position.set(0, portrait?3.5:2.9, portrait?9:6.6); camera.lookAt(0, portrait?2.0:1.95, 0); }
-  else if(phonePort){ camera.position.set(0, 3.7, 10.4); camera.lookAt(0, 1.45, 0); }
-  else if(phoneLand){ camera.position.set(0, 2.55, 7.35); camera.lookAt(0, 1.45, 0); }
-  else { camera.position.set(0, portrait?3.5:2.9, portrait?9:6.6); camera.lookAt(0, portrait?2.0:1.95, 0); }
+  else {
+    let pos, look;
+    if(phonePort){ pos=[0, 3.7, 10.4]; look=[0, 1.45, 0]; }
+    else if(phoneLand){ pos=[0, 3.05, 10.4]; look=[0, 0.95, 0]; }
+    else if(portrait){ pos=[0, 3.65, 9.6]; look=[0, 1.65, 0]; }
+    else { pos=[0, 3.25, 8.9]; look=[0, 1.25, 0]; }
+    camera.position.set(pos[0], pos[1], pos[2]);
+    camera.lookAt(look[0], look[1], look[2]);
+    clearLobbyBanner(look, 24);
+  }
+}
+function clearLobbyBanner(look, gap){
+  const logo=document.querySelector('#lobby .logo');
+  if(!logo || !lobby.ollie) return;
+  camera.updateMatrixWorld();
+  const need=logo.getBoundingClientRect().bottom + (gap||24);
+  for(let i=0;i<14;i++){
+    const r=charScreenRect();
+    if(!r) return;
+    if(r.top>=need && r.top>=4) return;
+    camera.position.z += 0.32;
+    camera.position.y += 0.06;
+    camera.lookAt(look[0], look[1], look[2]);
+    camera.updateMatrixWorld();
+  }
 }
 let last=performance.now(), realDt=0; const FPS={n:0,t:0,slow:0};
 function fpsMon(d){ if(active!=='game'||document.hidden) { FPS.n=0; FPS.t=0; return; } FPS.n++; FPS.t+=d; if(FPS.t>=2.5){ const fps=FPS.n/FPS.t; FPS.n=0; FPS.t=0; if((S.quality||'auto')==='auto' && !autoLow && fps<34){ if(++FPS.slow>=2){ autoLow=true; applyQuality(); toast('Switched to Low graphics for smoother play'); } } else FPS.slow=0; } }
