@@ -4,9 +4,10 @@ import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js';
 import * as ECO from './economy.js';
 import { openReefSort } from './sort/reef-sort.js';
 import { openReefDiner } from './dash/dash.js';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-3';
 import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261115-8';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261115-8';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-3';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-3';
 import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js';
 
 /* ===================== DATA ===================== */
@@ -158,7 +159,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-2';
+const ASSET_V = '20261116-3';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -994,7 +995,7 @@ function refreshPicker(){ const m=S.mode, el=$('#lvlPick'); const show = m==='ma
   $('#lvlDown').classList.toggle('off', cur<=1); $('#lvlUp').classList.toggle('off', cur>=mx); el.classList.toggle('replay', cur<mx); }
 function stepPick(d){ const m=S.mode; if(m!=='maze'&&m!=='cards') return; const nv=Math.max(1, Math.min(pickMax(m), pickCur(m)+d)); if(nv===pickCur(m)){ SFX.miss(); if(d>0) toast(`Finish ${m==='maze'?'Level':'Round'} ${pickMax(m)} to unlock the next one! 🔓`); return; } PICK[m]=nv; SFX.click(); refreshLobby(); }
 $('#lvlDown').onclick=()=>stepPick(-1); $('#lvlUp').onclick=()=>stepPick(1);
-function refreshLobby(){ refreshCoins(); $$('.mode').forEach(b=>b.classList.toggle('sel', b.dataset.mode===S.mode)); refreshPicker(); $('#playSub').textContent = S.mode==='maze'?`Maze · Level ${pickCur('maze')}`:S.mode==='race'?'Race · beat the clock':S.mode==='sort'?'Reef Sort · match the friends':S.mode==='dash'?'Reef Diner · serve your friends':`Match Cards · Round ${pickCur('cards')}`; $('.avatar').innerHTML=`<img src="${artUrl(S.selChar||'ollie')}" alt="${(CMAP[S.selChar]||CMAP.ollie).name.split(' the ')[0]}">`; refreshProgress(); }
+function refreshLobby(){ refreshCoins(); $$('.mode').forEach(b=>b.classList.toggle('sel', b.dataset.mode===S.mode)); refreshPicker(); $('#playSub').textContent = S.mode==='maze'?`Maze · Level ${pickCur('maze')}`:S.mode==='race'?'Race · beat the clock':S.mode==='sort'?'Reef Sort · match the friends':S.mode==='dash'?'Reef Diner · serve your friends':S.mode==='hide'?'Hide & Seek · find friends':`Match Cards · Round ${pickCur('cards')}`; $('.avatar').innerHTML=`<img src="${artUrl(S.selChar||'ollie')}" alt="${(CMAP[S.selChar]||CMAP.ollie).name.split(' the ')[0]}">`; refreshProgress(); }
 /* economy v2 lobby progress (sits next to #playRow; does not touch it) */
 function refreshProgress(){ const el=$('#lobbyProg'); if(!el) return; const L=ECO.lobbyProgress(S);
   $('#lpChestLbl').innerHTML=`Chest in <b>${L.winsTowardChest}/${L.winsNeeded}</b> games`; $$('#lpChestBar i').forEach((x,i)=>x.classList.toggle('on', i<L.winsTowardChest));
@@ -1004,12 +1005,13 @@ $('#lobbyProg').onclick=()=>{ SFX.click(); openPanel('chests'); };
 $$('.mode').forEach(b=>b.onclick=()=>{ SFX.click(); S.mode=b.dataset.mode; save(); refreshLobby(); });
 function startSort(){ active='none'; openReefSort({ ECO, S, save, onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('sort'); }
 function startDash(){ active='none'; openReefDiner({ ECO, S, save, artUrl, chars:CHARS, waiterId:S.selChar||'ollie', sfxOn:()=>S.music!==false, onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('play'); }
+function startHide(){ active='none'; openHideSeek({ ECO, S, save, artUrl, chars:CHARS, seekerId:S.selChar||'ollie', sfxOn:()=>S.music!==false, onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('sort'); }
 // economy v2: one-time friendly notice for existing players, then any bonus chests that were waiting
 function cosmicNotice(){ S.cosmicNoticeSeen=true; save(); const done=()=>{ hideModal(); flushChests(); };
   showModal(`<h2>MORE STARFISH! 🎉</h2><div class="prize"><div class="ic">🌌</div></div><p>Play as much as you like — every game gives starfish, and every <b>5 wins</b> opens a bonus chest! 🎁</p><p class="v2note">The super-rare <b>Cosmic</b> prizes now show up after about <b>2 weeks</b> of play, and in a special chest at <b>Maze Level 80</b>. ✨</p>`, [['YAY!','green awesome',done]], { onClose:done }); }
 setTimeout(()=>{ if(active!=='lobby' || !$('#modal').classList.contains('hidden')) return; if(!S.cosmicNoticeSeen) cosmicNotice(); else flushChests(); }, 900);
 setTimeout(()=>{ const z=window.__zkidz; if(!z) return; Object.assign(z, { flushChests, refreshProgress, finishRace, cardsWin }); Object.defineProperty(z, 'C', { get:()=>C }); }, 0); // test hooks
-$('#playBtn').onclick=()=>{ ac(); SFX.go(); if(S.mode==='maze') startMaze(pickCur('maze')); else if(S.mode==='race') startRace(); else if(S.mode==='sort') startSort(); else if(S.mode==='dash') startDash(); else startCards(pickCur('cards')); };
+$('#playBtn').onclick=()=>{ ac(); SFX.go(); if(S.mode==='maze') startMaze(pickCur('maze')); else if(S.mode==='race') startRace(); else if(S.mode==='sort') startSort(); else if(S.mode==='dash') startDash(); else if(S.mode==='hide') startHide(); else startCards(pickCur('cards')); };
 function openSettings(quiet){ if(!quiet) SFX.click(); const cur=S.quality||'auto'; const opt=(k,l)=>[`${k===cur?'✔ ':''}${l}`, k===cur?'green':'blue', ()=>{ S.quality=k; if(k!=='auto') autoLow=false; save(); applyQuality(); hideModal(); toast(`Graphics: ${l}`); }];
   const musicOn=musicEnabled();
   showModal(`<div class="settings-body"><h2>SETTINGS</h2>
@@ -1185,4 +1187,4 @@ $('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quit
 /* ===================== INIT ===================== */
 resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
-window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, startDash, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
+window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, startDash, startHide, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };

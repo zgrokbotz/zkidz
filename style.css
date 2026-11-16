@@ -217,7 +217,7 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
   .lpg-seg{height:calc(var(--u)*2.6)}.lpg-bar{height:calc(var(--u)*2.2)}
 }
 /* phones held upright use Zamer's #lobbyDock (MODE + PLAY stacked): the card joins the dock, above MODE so PLAY stays in thumb reach */
-@media (orientation:portrait) and (max-width:600px){
+@media (orientation:portrait){
   #lobbyDock .lobby-prog{position:relative;left:auto;bottom:auto;transform:none;order:-1;width:100%;box-sizing:border-box;padding:calc(var(--u)*.8) calc(var(--u)*1.2);column-gap:calc(var(--u)*1.2)}
   #lobbyDock .lobby-prog:active{transform:translateY(3px)}
   #lobbyDock .lpg-lbl{font-size:calc(var(--u)*2.1)}#lobbyDock .lpg-mile{font-size:calc(var(--u)*1.9)}#lobbyDock .lpg-ic{font-size:calc(var(--u)*3.2)}
@@ -525,13 +525,12 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 
 /* ---------- phone lobby layout ---------- */
 /* Portrait: raise PLAY + modes into a centered dock above the safe area / browser chrome. */
-@media (orientation:portrait) and (max-width:600px){
+@media (orientation:portrait){
   #lobbyDock{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*.8);z-index:3;width:min(82vw,calc(var(--u)*48));max-width:calc(100vw - 16px);pointer-events:none}
   #lobbyDock>*{pointer-events:auto}
   #lobbyDock .modes{position:relative;left:auto;right:auto;bottom:auto;display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--u)*.55);padding:calc(var(--u)*.7);width:100%;margin:0;box-sizing:border-box}
   #lobbyDock .modes::before{grid-column:1/-1;margin:0 0 2px}
   #lobbyDock .mode{min-width:0;width:100%;min-height:44px;font-size:calc(var(--u)*2.15);padding:calc(var(--u)*.25) calc(var(--u)*.4);line-height:1.05;white-space:normal;transform:none}
-  #lobbyDock .modes > .mode:last-child{grid-column:1/-1;width:70%;justify-self:center}
   #lobbyDock .mode.sel{transform:none;box-shadow:0 calc(var(--u)*.4) 0 var(--ink),0 0 0 calc(var(--u)*.28) #fff}
   #lobbyDock #playRow{position:relative;left:auto;bottom:auto;transform:none;width:100%;max-width:100%}
   #lobbyDock #playBtn,#lobbyDock .btn.big{min-height:44px;width:100%;max-width:100%;font-size:calc(var(--u)*5.2);padding:calc(var(--u)*.7) calc(var(--u)*2)}
@@ -555,16 +554,26 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 }
 
 
-/* Five mode buttons: compact 2-column MODE grid so the panel stays short
-   enough for Chests / Leaderboard and does not overlap PLAY. */
+/* Six mode buttons: compact 2x3 MODE grid so the panel stays short
+   enough for Chests / Leaderboard and does not overlap PLAY.
+   Very wide desktops use 3x2. Portrait (phones and iPads) uses the centered dock. */
 .modes{display:grid;grid-template-columns:1fr 1fr;width:calc(var(--u)*24)}
 .modes::before{grid-column:1/-1}
 .mode{min-width:0;width:100%;box-sizing:border-box;white-space:normal;line-height:1.05;text-align:center;font-size:calc(var(--u)*1.9);padding:calc(var(--u)*.3) calc(var(--u)*.5)}
-.modes > .mode:last-child{grid-column:1/-1}
+.modes > .mode:last-child{grid-column:auto;width:100%;justify-self:stretch}
 @media (orientation:landscape) and (max-height:500px){
   #lobby .modes{display:grid;grid-template-columns:1fr 1fr;width:min(230px,34vw);gap:calc(var(--u)*.22);padding:calc(var(--u)*.25) calc(var(--u)*.4)}
   #lobby .mode{min-height:44px;min-width:0;font-size:calc(var(--u)*1.55);padding:calc(var(--u)*.06) calc(var(--u)*.35)}
-  #lobby .modes > .mode:last-child{grid-column:1/-1;width:auto}
+  #lobby .modes > .mode:last-child{grid-column:auto;width:100%}
+}
+@media (min-width:1500px) and (orientation:landscape) and (min-height:501px){
+  .modes{grid-template-columns:1fr 1fr 1fr;width:calc(var(--u)*32)}
+}
+/* Landscape / desktop: selected mode must not scale out of the 2x3 cell,
+   and PLAY must stay clear of the left progress card and the right MODE grid. */
+.mode.sel{transform:none;box-shadow:0 calc(var(--u)*.4) 0 var(--ink),0 0 0 calc(var(--u)*.28) #fff}
+@media (orientation:landscape){
+  #playRow{max-width:min(38vw,calc(var(--u)*36),calc(100vw - var(--u)*74))}
 }
 
 #webglRecover{position:fixed;inset:0;z-index:200;background:rgba(8,30,70,.92);display:flex;align-items:center;justify-content:center;padding:20px}
@@ -572,3 +581,4 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 #webglRecover h2{margin:0 0 8px;font-size:28px;color:#ffe25a;text-shadow:0 3px 0 var(--ink)}
 #webglRecover p{margin:0 0 14px;font-size:18px;text-shadow:0 2px 0 var(--ink)}
 #webglRecover .btn{min-width:200px;min-height:48px}
+
