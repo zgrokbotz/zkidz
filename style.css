@@ -591,28 +591,33 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
   #lobby .sq{width:clamp(86px, 22vw, 148px);font-size:clamp(8px, 2.1vw, 13px);padding-left:3px;padding-right:3px;letter-spacing:0}
 }
 @media (orientation:landscape) and (min-height:501px){
-  #lobby .top-left, #lobby .top-right{top:clamp(8px, 1.2vh, 16px)}
-  #lobby .avatar{width:clamp(44px, 4.6vw, 60px);height:clamp(44px, 4.6vw, 60px);font-size:clamp(22px, 2.4vw, 32px);border-radius:clamp(8px, 1vw, 12px)}
-  #lobby .pname{font-size:clamp(16px, 1.5vw, 22px)}
-  #lobby .trophy{font-size:clamp(12px, 1.2vw, 16px);padding:0 clamp(8px, 0.8vw, 12px)}
-  #lobby .gear{width:clamp(44px, 4.2vw, 52px);height:clamp(44px, 4.2vw, 52px);font-size:clamp(20px, 2vw, 28px);border-radius:clamp(8px, 1vw, 12px)}
-  #lobby .top-right .pill{font-size:clamp(16px, 1.6vw, 22px);padding:clamp(3px, 0.5vh, 6px) clamp(10px, 1vw, 16px) clamp(3px, 0.5vh, 6px) clamp(4px, 0.4vw, 8px)}
-  #lobby .side{top:clamp(88px, 12vh, 120px);bottom:max(200px, 32vh);gap:clamp(8px, 1.2vh, 14px);justify-content:flex-start}
-  #lobby .side.left{left:clamp(12px, 1.6vw, 24px)}
-  #lobby .side.right{right:clamp(12px, 1.6vw, 24px)}
-  #lobby .sq{width:clamp(110px, 10.5vw, 140px);height:auto;min-height:44px;max-height:100px;font-size:clamp(11px, 1.05vw, 13px);padding:clamp(4px, 0.6vh, 8px) 6px clamp(6px, 0.7vh, 10px);gap:2px}
-  #lobby .sq span{font-size:clamp(22px, 2.3vw, 30px)}
-  #lobby .shop-stand .shop-svg, #lobby .shop-svg{width:clamp(28px, 3vw, 40px);height:clamp(24px, 2.6vw, 36px)}
-  #lobby .modes{right:clamp(12px, 1.6vw, 24px);bottom:clamp(12px, 2vh, 22px);width:clamp(210px, 22vw, 280px);padding:clamp(6px, 0.9vh, 10px);gap:clamp(4px, 0.55vh, 8px)}
-  #lobby .modes::before{font-size:clamp(11px, 1.2vw, 14px);margin-bottom:2px}
-  #lobby .mode{font-size:clamp(11px, 1.15vw, 15px);padding:clamp(5px, 0.55vh, 8px) 6px;min-height:44px}
-  #lobby .lobby-prog{left:clamp(12px, 1.6vw, 24px);bottom:clamp(12px, 2vh, 22px);width:clamp(220px, 26vw, 340px);padding:clamp(8px, 1vh, 12px) clamp(10px, 1.1vw, 14px);gap:clamp(4px, 0.6vh, 8px)}
-  #lobby .lpg-lbl{font-size:clamp(11px, 1.15vw, 14px);white-space:nowrap}
-  #lobby .lpg-mile{font-size:clamp(10px, 1.05vw, 13px)}
-  #playRow{max-width:min(36vw, 400px, calc(100vw - 28vw - 280px));bottom:clamp(12px, 2vh, 22px)}
-  #playRow .btn.big, #lobby #playBtn{font-size:clamp(32px, 5.4vh, 52px);padding:clamp(6px, 0.8vh, 12px) clamp(20px, 3vw, 40px);overflow:visible}
-  #playRow .btn.big small{font-size:clamp(12px, 1.4vw, 16px)}
+  #lobby .logo{font-size:clamp(56px, 7.6vh, 88px);letter-spacing:1px;top:max(8px, env(safe-area-inset-top, 0px))}
+  #lobby .top-left, #lobby .top-right{top:clamp(10px, 1.4vh, 18px)}
+  #lobby .avatar{width:clamp(58px, 5.8vw, 80px);height:clamp(58px, 5.8vw, 80px);font-size:clamp(28px, 3vw, 42px);border-radius:clamp(10px, 1.1vw, 16px)}
+  #lobby .pname{font-size:clamp(18px, 1.9vw, 28px)}
+  #lobby .trophy{font-size:clamp(14px, 1.4vw, 20px);padding:0 clamp(10px, 1vw, 14px)}
+  #lobby .gear{width:clamp(52px, 5.2vw, 72px);height:clamp(52px, 5.2vw, 72px);font-size:clamp(24px, 2.4vw, 36px);border-radius:clamp(10px, 1.1vw, 16px)}
+  #lobby .top-right .pill{font-size:clamp(18px, 1.9vw, 26px);padding:clamp(4px, 0.6vh, 8px) clamp(12px, 1.2vw, 18px) clamp(4px, 0.6vh, 8px) clamp(6px, 0.5vw, 10px)}
+  #lobby .side{top:clamp(110px, 15vh, 170px);bottom:max(210px, 33vh);gap:clamp(10px, 1.4vh, 18px);justify-content:flex-start}
+  #lobby .side.left{left:clamp(14px, 1.8vw, 28px)}
+  #lobby .side.right{right:clamp(14px, 1.8vw, 28px)}
+  #lobby .sq{width:clamp(132px, 12.2vw, 176px);height:auto;min-height:72px;max-height:140px;font-size:clamp(13px, 1.25vw, 17px);padding:clamp(6px, 0.8vh, 12px) 8px clamp(8px, 0.9vh, 12px);gap:4px}
+  #lobby .sq span{font-size:clamp(40px, 4.2vw, 64px)}
+  #lobby .shop-stand .shop-svg, #lobby .shop-svg{width:clamp(42px, 4.6vw, 60px);height:clamp(38px, 4vw, 54px)}
+  #lobby .modes{right:clamp(14px, 1.8vw, 28px);bottom:clamp(14px, 2.2vh, 26px);width:clamp(240px, 24vw, 320px);padding:clamp(8px, 1.1vh, 12px);gap:clamp(6px, 0.7vh, 10px)}
+  #lobby .modes::before{font-size:clamp(13px, 1.35vw, 16px);margin-bottom:2px}
+  #lobby .mode{font-size:clamp(13px, 1.3vw, 17px);padding:clamp(6px, 0.7vh, 10px) 8px;min-height:44px}
+  #lobby .lobby-prog{left:clamp(14px, 1.8vw, 28px);bottom:clamp(14px, 2.2vh, 26px);width:clamp(250px, 28vw, 380px);padding:clamp(10px, 1.2vh, 14px) clamp(12px, 1.2vw, 16px);gap:clamp(6px, 0.7vh, 10px)}
+  #lobby .lpg-lbl{font-size:clamp(13px, 1.3vw, 16px);white-space:nowrap}
+  #lobby .lpg-mile{font-size:clamp(11px, 1.15vw, 14px)}
+  #playRow{max-width:min(38vw, 440px, calc(100vw - 30vw - 300px));bottom:clamp(14px, 2.2vh, 26px)}
+  #playRow .btn.big, #lobby #playBtn{font-size:clamp(52px, 7.5vh, 84px);padding:clamp(8px, 1vh, 14px) clamp(28px, 3.5vw, 52px);overflow:visible}
+  #playRow .btn.big small{font-size:clamp(14px, 1.6vw, 20px)}
 }
 @media (min-width:1500px) and (orientation:landscape) and (min-height:501px){
-  #lobby .modes{width:clamp(300px, 28vw, 420px)}
+  #lobby .modes{width:clamp(340px, 30vw, 480px)}
+}
+/* Phone portrait only: bolder ZKIDZ title. iPad portrait keeps the compact top-bar size. */
+@media (orientation:portrait) and (max-width:600px){
+  #lobby .logo, .logo{font-size:clamp(40px, 7.2vh, 56px);letter-spacing:.5px}
 }

@@ -3,11 +3,11 @@ import * as THREE from './vendor/three.module.min.js';
 import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js';
 import * as ECO from './economy.js';
 import { openReefSort } from './sort/reef-sort.js';
-import { openReefDiner } from './dash/dash.js?v=20261116-6';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-6';
+import { openReefDiner } from './dash/dash.js?v=20261116-7';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-7';
 import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-6';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-6';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-7';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-7';
 import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js';
 
 /* ===================== DATA ===================== */
@@ -159,7 +159,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-6';
+const ASSET_V = '20261116-7';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -259,7 +259,7 @@ function showWebglRecover(){ let el=document.getElementById('webglRecover'); if(
 canvas.addEventListener('webglcontextlost', ev=>{ ev.preventDefault(); showWebglRecover(); });
 canvas.addEventListener('webglcontextrestored', ()=>{ location.reload(); });
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 160);
-function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov = w<h?72:55; camera.updateProjectionMatrix(); updateViewOffset(); }
+function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov = w<h?72:55; camera.updateProjectionMatrix(); updateViewOffset(); invalidateLobbyFrame(); }
 addEventListener('resize', resize);
 
 function mat(color, o={}){ return new THREE.MeshStandardMaterial({ color, roughness:o.rough??0.55, metalness:o.metal??0, emissive:o.emissive??0x000000, emissiveIntensity:o.ei??1, transparent:!!o.opacity, opacity:o.opacity??1 }); }
@@ -623,7 +623,7 @@ function setLobbyOllie(){ if(lobby.ollie) lobby.scene.remove(lobby.ollie);
   lobby.pedestal=buildPedestal({ top: shop?.28:.52 }); lobby.scene.add(lobby.pedestal);
   lobby.ollie=buildOllie(opts);
   lobby.ollie.userData.baseY=shop?.28:.52; lobby.ollie.position.y=lobby.ollie.userData.baseY; lobby.ollie.scale.setScalar(shop?1.12:1.6); lobby.scene.add(lobby.ollie);
-  addBlobShadow(lobby.ollie); triggerAnim(lobby.ollie, 'wave'); }
+  addBlobShadow(lobby.ollie); captureLobbyRestBox(); invalidateLobbyFrame(); triggerAnim(lobby.ollie, 'wave'); }
 let viewOffsetMode=null;
 let shopTryOn=null; // {kind:'item',id} | {kind:'char',id} | {kind:'look',name,char,eq}
 function shopChar(){ if(shopTryOn && shopTryOn.kind==='char' && isPlayable(shopTryOn.id)) return shopTryOn.id; return S.selChar; }
@@ -954,34 +954,80 @@ function updateGame(dt, t){
 function updateLobby(dt,t){ uOcc.on.value=0;
   const o=lobby.ollie; if(!o) return; animateChar(o,'idle',0,dt,t); if(!dragging) lobby.extra=(lobby.extra||0)*(1-Math.min(1,dt*1.2)); o.rotation.y = Math.sin(t*.6)*.12 + (lobby.extra||0);
   lobby.bubbles.userData.update(dt); lobby.rays.userData.update(t,camera);
-  const portrait=innerWidth<innerHeight, phoneLand=!portrait && innerHeight<=500, phonePort=portrait && innerWidth<=600;
-  if(window.__lobbyCam){ camera.position.fromArray(window.__lobbyCam[0]); camera.lookAt(...window.__lobbyCam[1]); }
-  else if(viewOffsetMode){ camera.position.set(0, portrait?3.5:2.9, portrait?9:6.6); camera.lookAt(0, portrait?2.0:1.95, 0); }
-  else {
-    let pos, look;
-    if(phonePort){ pos=[0, 3.7, 10.4]; look=[0, 1.45, 0]; }
-    else if(phoneLand){ pos=[0, 3.05, 10.4]; look=[0, 0.95, 0]; }
-    else if(portrait){ pos=[0, 3.65, 9.6]; look=[0, 1.65, 0]; }
-    else { pos=[0, 3.25, 8.9]; look=[0, 1.25, 0]; }
-    camera.position.set(pos[0], pos[1], pos[2]);
-    camera.lookAt(look[0], look[1], look[2]);
-    clearLobbyBanner(look, 24);
-  }
+  applyLobbyCamera();
 }
-function clearLobbyBanner(look, gap){
-  const logo=document.querySelector('#lobby .logo');
-  if(!logo || !lobby.ollie) return;
-  camera.updateMatrixWorld();
-  const need=logo.getBoundingClientRect().bottom + (gap||24);
-  for(let i=0;i<14;i++){
-    const r=charScreenRect();
-    if(!r) return;
-    if(r.top>=need && r.top>=4) return;
-    camera.position.z += 0.32;
-    camera.position.y += 0.06;
-    camera.lookAt(look[0], look[1], look[2]);
-    camera.updateMatrixWorld();
+/* Frame the lobby camera ONCE per resize or character/outfit change.
+   Uses a rest-pose bounding box (not the waving/idle one) so distance
+   never oscillates. No per-frame getBoundingClientRect. */
+const lobbyFrame = { key:'', pos:null, look:null };
+function invalidateLobbyFrame(){ lobbyFrame.key=''; }
+function lobbyFrameKey(){ const eq=S.equipped||{}; return [innerWidth, innerHeight, viewOffsetMode||'', S.selChar||'', eq.hat||''].join('|'); }
+function captureLobbyRestBox(){
+  const o=lobby.ollie; if(!o){ lobby.restBox=null; return; }
+  const ry=o.rotation.y; o.rotation.y=0; o.updateMatrixWorld(true);
+  const box=new THREE.Box3().setFromObject(o);
+  const pad=Math.max(0.16, (box.max.y-box.min.y)*0.12);
+  box.max.y += pad;
+  lobby.restBox=box;
+  o.rotation.y=ry; o.updateMatrixWorld(true);
+}
+function projectRestBox(){
+  const box=lobby.restBox; if(!box||!camera) return null;
+  const v=new THREE.Vector3();
+  let minX=1e9,minY=1e9,maxX=-1e9,maxY=-1e9, any=false;
+  const xs=[box.min.x,box.max.x], ys=[box.min.y,box.max.y], zs=[box.min.z,box.max.z];
+  for(const x of xs) for(const y of ys) for(const z of zs){
+    v.set(x,y,z).project(camera);
+    if(v.z>1) continue;
+    any=true;
+    const sx=(v.x*.5+.5)*innerWidth, sy=(-v.y*.5+.5)*innerHeight;
+    minX=Math.min(minX,sx); maxX=Math.max(maxX,sx); minY=Math.min(minY,sy); maxY=Math.max(maxY,sy);
   }
+  return any?{left:minX,top:minY,right:maxX,bottom:maxY}:null;
+}
+function frameLobbyCamera(){
+  const portrait=innerWidth<innerHeight, phoneLand=!portrait && innerHeight<=500, phonePort=portrait && innerWidth<=600;
+  let pos, look;
+  if(phonePort){ pos=[0, 3.7, 10.4]; look=[0, 1.45, 0]; }
+  else if(phoneLand){ pos=[0, 3.05, 10.4]; look=[0, 0.95, 0]; }
+  else if(portrait){ pos=[0, 3.65, 9.6]; look=[0, 1.65, 0]; }
+  else { pos=[0, 3.35, 9.5]; look=[0, 1.05, 0]; }
+  camera.position.set(pos[0], pos[1], pos[2]);
+  camera.lookAt(look[0], look[1], look[2]);
+  camera.updateMatrixWorld();
+  if(!lobby.restBox) captureLobbyRestBox();
+  const logo=document.querySelector('#lobby .logo');
+  const gap=32;
+  if(logo && lobby.restBox){
+    const need=logo.getBoundingClientRect().bottom + gap;
+    for(let i=0;i<16;i++){
+      const r=projectRestBox();
+      if(!r) break;
+      if(r.top>=need && r.top>=4) break;
+      camera.position.z += 0.32;
+      camera.position.y += 0.06;
+      camera.lookAt(look[0], look[1], look[2]);
+      camera.updateMatrixWorld();
+    }
+  }
+  lobbyFrame.key=lobbyFrameKey();
+  lobbyFrame.pos=camera.position.clone();
+  lobbyFrame.look=look.slice();
+}
+function applyLobbyCamera(){
+  const portrait=innerWidth<innerHeight;
+  if(window.__lobbyCam){ camera.position.fromArray(window.__lobbyCam[0]); camera.lookAt(...window.__lobbyCam[1]); return; }
+  if(viewOffsetMode){ camera.position.set(0, portrait?3.5:2.9, portrait?9:6.6); camera.lookAt(0, portrait?2.0:1.95, 0); return; }
+  if(!lobbyFrame.pos || lobbyFrame.key!==lobbyFrameKey()) frameLobbyCamera();
+  else { camera.position.copy(lobbyFrame.pos); camera.lookAt(...lobbyFrame.look); }
+}
+function lobbyProbe(){
+  const el=renderer && renderer.domElement;
+  return {
+    x:camera.position.x, y:camera.position.y, z:camera.position.z,
+    fov:camera.fov, aspect:camera.aspect,
+    canvas:{ w:el?el.width:0, h:el?el.height:0, cw:el?el.clientWidth:0, ch:el?el.clientHeight:0 }
+  };
 }
 let last=performance.now(), realDt=0; const FPS={n:0,t:0,slow:0};
 function fpsMon(d){ if(active!=='game'||document.hidden) { FPS.n=0; FPS.t=0; return; } FPS.n++; FPS.t+=d; if(FPS.t>=2.5){ const fps=FPS.n/FPS.t; FPS.n=0; FPS.t=0; if((S.quality||'auto')==='auto' && !autoLow && fps<34){ if(++FPS.slow>=2){ autoLow=true; applyQuality(); toast('Switched to Low graphics for smoother play'); } } else FPS.slow=0; } }
@@ -1209,4 +1255,4 @@ $('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quit
 /* ===================== INIT ===================== */
 resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
-window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, startDash, startHide, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
+window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, startDash, startHide, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, lobbyProbe, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
