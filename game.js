@@ -1,6 +1,6 @@
 // ZKIDZ – Ocean Maze prototype. Three.js, no build step.
-import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import * as THREE from './vendor/three.module.min.js';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js';
 import * as ECO from './economy.js';
 import { openReefSort } from './sort/reef-sort.js';
 import { openReefDiner } from './dash/dash.js';
@@ -122,9 +122,17 @@ ECO.initEconomy(ITEMS, CHARS); ECO.migrateSave(S); const HELLO_TODAY = ECO.ensur
 if(!WAS_V1) S.cosmicNoticeSeen=true; // new players start on v2, nothing to explain
 function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){} refreshCoins(); }
 
+/* ===================== SAFARI COMPAT ===================== */
+(function(){ const P=typeof CanvasRenderingContext2D!=='undefined' && CanvasRenderingContext2D.prototype; if(!P||P.roundRect) return;
+  P.roundRect=function(x,y,w,h,r){ if(w<0){ x+=w; w=-w; } if(h<0){ y+=h; h=-h; }
+    let rtl,rtr,rbr,rbl; if(typeof r==='number') rtl=rtr=rbr=rbl=r; else if(Array.isArray(r)){ rtl=r[0]||0; rtr=r[1]||r[0]||0; rbr=r[2]||r[0]||0; rbl=r[3]||r[1]||r[0]||0; } else { const o=r||{}; rtl=+o[0]||+o.tl||0; rtr=+o[1]||+o.tr||0; rbr=+o[2]||+o.br||0; rbl=+o[3]||+o.bl||0; }
+    const m=Math.min(w,h)/2; rtl=Math.min(Math.max(0,rtl),m); rtr=Math.min(Math.max(0,rtr),m); rbr=Math.min(Math.max(0,rbr),m); rbl=Math.min(Math.max(0,rbl),m);
+    this.moveTo(x+rtl,y); this.lineTo(x+w-rtr,y); this.quadraticCurveTo(x+w,y,x+w,y+rtr); this.lineTo(x+w,y+h-rbr); this.quadraticCurveTo(x+w,y+h,x+w-rbr,y+h); this.lineTo(x+rbl,y+h); this.quadraticCurveTo(x,y+h,x,y+h-rbl); this.lineTo(x,y+rtl); this.quadraticCurveTo(x,y,x+rtl,y); this.closePath(); return this; };
+})();
+
 /* ===================== AUDIO ===================== */
 let AC = null;
-function ac(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(AC && AC.state==='suspended') AC.resume(); return AC; }
+function ac(){ try{ if(!AC){ const Ctor=window.AudioContext||window.webkitAudioContext; if(!Ctor) return null; AC=new Ctor(); } if(AC && AC.state==='suspended'){ const p=AC.resume(); if(p&&p.catch) p.catch(()=>{}); } }catch(e){} return AC; }
 function tone(f, d=0.12, type='sine', g=0.15, delay=0, slide=0){
   const a = ac(); if(!a) return;
   const t = a.currentTime + delay, o = a.createOscillator(), v = a.createGain();
@@ -150,7 +158,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-1';
+const ASSET_V = '20261116-2';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -232,6 +240,8 @@ const rand = (a,b)=>a+Math.random()*(b-a);
 const pick = arr => arr[Math.floor(Math.random()*arr.length)];
 const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
 if(isTouch) document.body.classList.add('touch');
+const isAppleTouch = /iPad|iPhone|iPod/.test(navigator.userAgent||'') || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+function maxPixelRatio(){ try{ if(typeof isLow==='function' && isLow()) return 1; }catch(e){} if(isAppleTouch) return 1.5; if(isTouch) return 1.6; return 2; }
 function refreshCoins(){ $$('.coinCount').forEach(e=>e.textContent=S.coins.toLocaleString()); $('#trophies').textContent = S.bestLevel*100 + S.chestsOpened*25; $('#pname').textContent=S.name; }
 let toastT; function toast(msg){ const t=$('#toast'); t.innerHTML=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1800); }
 function rarityBadge(r){ const R=RMAP[r]; const bg = r==='cosmic'?'linear-gradient(90deg,#7b5cff,#00e5ff,#ff5fd2)':R.color; return `<span class="rar" style="background:${bg}">${R.name}</span>`; }
@@ -240,10 +250,13 @@ function confetti(color){ for(let i=0;i<40;i++){ const d=document.createElement(
 /* ===================== THREE SETUP ===================== */
 const canvas = $('#c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch?1.6:2));
+renderer.setPixelRatio(Math.min(devicePixelRatio||1, maxPixelRatio()));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.LinearToneMapping; renderer.toneMappingExposure = 1.0;
+function showWebglRecover(){ let el=document.getElementById('webglRecover'); if(!el){ el=document.createElement('div'); el.id='webglRecover'; el.innerHTML='<div class="webgl-card"><h2>The ocean needs a quick splash!</h2><p>Tap to bring the reef back.</p><button type="button" class="btn green">TAP TO CONTINUE</button></div>'; el.querySelector('button').onclick=()=>location.reload(); document.body.appendChild(el); } }
+canvas.addEventListener('webglcontextlost', ev=>{ ev.preventDefault(); showWebglRecover(); });
+canvas.addEventListener('webglcontextrestored', ()=>{ location.reload(); });
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 160);
 function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov = w<h?72:55; camera.updateProjectionMatrix(); updateViewOffset(); }
 addEventListener('resize', resize);
@@ -460,25 +473,42 @@ function animateOllieLegacy(o, speed, dt, t){
 
 /* ===================== 3D ITEM THUMBNAILS ===================== */
 // Each accessory is rendered from its real in-game mesh (built on Ollie, body hidden) to a transparent PNG, cached per item.
-const THUMBS = {}; let thumbR=null, thumbScene=null;
-function ensureThumbR(){
-  if(thumbR) return;
-  thumbR=new THREE.WebGLRenderer({ antialias:true, alpha:true, preserveDrawingBuffer:true }); thumbR.setPixelRatio(1); thumbR.setSize(224,224); thumbR.setClearColor(0x000000,0);
-  thumbR.outputColorSpace=THREE.SRGBColorSpace; thumbR.toneMapping=VISION_ACES?THREE.ACESFilmicToneMapping:THREE.LinearToneMapping; thumbR.toneMappingExposure=VISION_ACES?VISION_EXPOSURE:1.05;
-  thumbScene=new THREE.Scene(); thumbScene.add(new THREE.HemisphereLight(0xffffff,0x6a7aa8,1.5)); const d=new THREE.DirectionalLight(0xffffff,2.2); d.position.set(3,5,6); thumbScene.add(d); const f=new THREE.DirectionalLight(0x9fd8ff,.8); f.position.set(-4,2,-3); thumbScene.add(f);
+const THUMBS = {}; let thumbScene=null;
+function ensureThumbScene(){
+  if(thumbScene) return;
+  thumbScene=new THREE.Scene(); thumbScene.add(new THREE.HemisphereLight(0xffffff,0x6a7aa8,1.5));
+  const d=new THREE.DirectionalLight(0xffffff,2.2); d.position.set(3,5,6); thumbScene.add(d);
+  const f=new THREE.DirectionalLight(0x9fd8ff,.8); f.position.set(-4,2,-3); thumbScene.add(f);
 }
-function disposeThumbR(){ if(!thumbR) return; thumbR.dispose(); thumbR.forceContextLoss(); thumbR=null; thumbScene=null; }
+function disposeThumbR(){ /* thumbs now use the main renderer — no second WebGL context to dispose */ }
+function captureThumb(cam, size=224){
+  const rt=new THREE.WebGLRenderTarget(size, size, { depthBuffer:true });
+  try{ if(rt.texture) rt.texture.colorSpace=THREE.SRGBColorSpace; }catch(e){}
+  const prevRT=renderer.getRenderTarget();
+  const prevColor=new THREE.Color(); renderer.getClearColor(prevColor);
+  const prevAlpha=renderer.getClearAlpha();
+  renderer.setClearColor(0x000000, 0);
+  renderer.setRenderTarget(rt); renderer.clear(); renderer.render(thumbScene, cam);
+  const buf=new Uint8Array(size*size*4);
+  renderer.readRenderTargetPixels(rt, 0, 0, size, size, buf);
+  renderer.setRenderTarget(prevRT); renderer.setClearColor(prevColor, prevAlpha); rt.dispose();
+  const c=document.createElement('canvas'); c.width=c.height=size; const ctx=c.getContext('2d');
+  const img=ctx.createImageData(size, size);
+  for(let y=0;y<size;y++) img.data.set(buf.subarray((size-1-y)*size*4, (size-y)*size*4), y*size*4);
+  ctx.putImageData(img,0,0);
+  return c.toDataURL('image/png');
+}
 function itemThumb(it){
   if(THUMBS[it.id]!==undefined) return THUMBS[it.id];
   try{
-    ensureThumbR(); thumbR.setSize(224,224);
+    ensureThumbScene();
     const o=buildOllie({ charId:'ollie', equipped:{ [it.slot]:it.id } }); o.updateMatrixWorld(true);
     const P=o.userData.parts, mannequin = (it.slot==='top'||it.slot==='bottom') ? new Set([P.body, P['arm-1'], P.arm1]) : null; const manMat=new THREE.MeshStandardMaterial({ color:0xe9eef8, roughness:.8, transparent:true, opacity:.42, depthWrite:false });
     const box=new THREE.Box3(); o.traverse(m=>{ if(!m.isMesh) return; if(m.userData.base){ if(mannequin && mannequin.has(m)){ m.material=manMat; m.renderOrder=-1; return; } m.layers.set(1); return; } m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox.clone().applyMatrix4(m.matrixWorld)); });
     if(box.isEmpty()){ THUMBS[it.id]=null; return null; }
     thumbScene.add(o); const c=box.getCenter(new THREE.Vector3()), sz=box.getSize(new THREE.Vector3()); const r=Math.max(sz.x,sz.y,sz.z)*.54+.03;
     const cam=new THREE.PerspectiveCamera(28,1,.01,50); const dir=new THREE.Vector3(.62,.38,1).normalize(); cam.position.copy(c).addScaledVector(dir, r/Math.sin(THREE.MathUtils.degToRad(14))); cam.lookAt(c);
-    thumbR.render(thumbScene, cam); THUMBS[it.id]=thumbR.domElement.toDataURL('image/png');
+    THUMBS[it.id]=captureThumb(cam);
     thumbScene.remove(o); o.traverse(m=>{ if(m.isMesh){ if(!m.geometry.userData.shared && !Object.values(ollieGeos()).includes(m.geometry)) m.geometry.dispose(); } });
   }catch(e){ console.warn('thumb failed', it.id, e); THUMBS[it.id]=null; }
   return THUMBS[it.id];
@@ -488,7 +518,7 @@ const LOOK_THUMBS = {};
 function lookThumb(charId, eq){
   const key=lookKey(charId, eq); if(LOOK_THUMBS[key]!==undefined) return LOOK_THUMBS[key];
   try{
-    ensureThumbR(); thumbR.setSize(224,224);
+    ensureThumbScene();
     const o=buildOllie({ charId: charId||'ollie', equipped: eq||{} }); o.updateMatrixWorld(true);
     const box=new THREE.Box3().setFromObject(o);
     if(box.isEmpty()){ LOOK_THUMBS[key]=null; return null; }
@@ -497,13 +527,13 @@ function lookThumb(charId, eq){
     const r=Math.max(sz.x,sz.y,sz.z)*.52+.04;
     const cam=new THREE.PerspectiveCamera(28,1,.01,50); const dir=new THREE.Vector3(.45,.28,1).normalize();
     cam.position.copy(c).addScaledVector(dir, r/Math.sin(THREE.MathUtils.degToRad(14))); cam.lookAt(c.x, c.y+sz.y*.04, c.z);
-    thumbR.render(thumbScene, cam); LOOK_THUMBS[key]=thumbR.domElement.toDataURL('image/png');
+    LOOK_THUMBS[key]=captureThumb(cam);
     thumbScene.remove(o); o.traverse(m=>{ if(m.isMesh){ if(!m.geometry.userData.shared && !Object.values(ollieGeos()).includes(m.geometry)) m.geometry.dispose(); } });
   }catch(e){ console.warn('look thumb failed', charId, e); LOOK_THUMBS[key]=null; }
   return LOOK_THUMBS[key];
 }
 function warmLookThumbs(rows){ for(const r of rows) lookThumb(r.char, r.eq); disposeThumbR(); }
-function warmThumbs(){ ensureThumbR(); for(const it of ITEMS) itemThumb(it); RARITIES.forEach(R=>{ const i=new Image(); i.src=artUrl('chest-'+R.id); }); disposeThumbR(); }
+function warmThumbs(){ RARITIES.forEach(R=>{ const i=new Image(); i.src=artUrl('chest-'+R.id); }); if(isAppleTouch) return; /* iPad: don't build dozens of 32k-tri models at boot; thumbs render lazily on the main context */ try{ for(const it of ITEMS) itemThumb(it); }catch(e){} }
 
 /* ===================== RARITY FILTER CHIPS ===================== */
 function effFilter(key, list){ const f=(S.filters||{})[key]||'all'; return f==='all'||list.some(x=>x.r===f)? f : 'all'; }
@@ -556,7 +586,7 @@ function updateSparkles(dt){ for(let i=sparkles.length-1;i>=0;i--){ const s=spar
 /* ===================== QUALITY ===================== */
 let autoLow=false;
 function isLow(){ return S.quality==='low' || ((S.quality||'auto')==='auto' && autoLow); }
-function applyQuality(){ const low=isLow(); renderer.setPixelRatio(Math.min(devicePixelRatio, low?1:(isTouch?1.6:2))); for(const sc of [lobby.scene, G.scene]) if(sc) sc.traverse(o=>{ if(o.isDirectionalLight && o.userData.main) o.castShadow=!low; if(o.userData.isRays) o.visible=!low; }); resize(); }
+function applyQuality(){ const low=isLow(); renderer.setPixelRatio(Math.min(devicePixelRatio||1, maxPixelRatio())); for(const sc of [lobby.scene, G.scene]) if(sc) sc.traverse(o=>{ if(o.isDirectionalLight && o.userData.main) o.castShadow=!low; if(o.userData.isRays) o.visible=!low; }); resize(); }
 buildCoralGeos(S.quality==='low'); buildMats();
 const ROCK_COLS=[0x6b6fa8,0x5a6b9a,0x7a6fa8,0x5f5a94];
 function reefCluster(inst, chunk, x, z, s=1, pal=CORAL_PAL.pinkPurple, n=4, rock=true){
@@ -973,7 +1003,7 @@ function refreshProgress(){ const el=$('#lobbyProg'); if(!el) return; const L=EC
 $('#lobbyProg').onclick=()=>{ SFX.click(); openPanel('chests'); };
 $$('.mode').forEach(b=>b.onclick=()=>{ SFX.click(); S.mode=b.dataset.mode; save(); refreshLobby(); });
 function startSort(){ active='none'; openReefSort({ ECO, S, save, onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('sort'); }
-function startDash(){ active='none'; openReefDiner({ ECO, S, save, artUrl, chars:CHARS, waiterId:S.selChar||'ollie', onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('play'); }
+function startDash(){ active='none'; openReefDiner({ ECO, S, save, artUrl, chars:CHARS, waiterId:S.selChar||'ollie', sfxOn:()=>S.music!==false, onWin:()=>({ chest:noteWin(), wins:S.winsTowardChest, need:ECO.WINS_PER_CHEST }), onExit:()=>{ active='lobby'; showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); } }); syncMusic('play'); }
 // economy v2: one-time friendly notice for existing players, then any bonus chests that were waiting
 function cosmicNotice(){ S.cosmicNoticeSeen=true; save(); const done=()=>{ hideModal(); flushChests(); };
   showModal(`<h2>MORE STARFISH! 🎉</h2><div class="prize"><div class="ic">🌌</div></div><p>Play as much as you like — every game gives starfish, and every <b>5 wins</b> opens a bonus chest! 🎁</p><p class="v2note">The super-rare <b>Cosmic</b> prizes now show up after about <b>2 weeks</b> of play, and in a special chest at <b>Maze Level 80</b>. ✨</p>`, [['YAY!','green awesome',done]], { onClose:done }); }

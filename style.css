@@ -566,3 +566,9 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
   #lobby .mode{min-height:44px;min-width:0;font-size:calc(var(--u)*1.55);padding:calc(var(--u)*.06) calc(var(--u)*.35)}
   #lobby .modes > .mode:last-child{grid-column:1/-1;width:auto}
 }
+
+#webglRecover{position:fixed;inset:0;z-index:200;background:rgba(8,30,70,.92);display:flex;align-items:center;justify-content:center;padding:20px}
+#webglRecover .webgl-card{max-width:420px;text-align:center;background:linear-gradient(#2b6fd6,#1a4ea8);border:5px solid var(--ink);border-radius:24px;padding:22px 18px;box-shadow:0 10px 0 var(--ink);color:#fff}
+#webglRecover h2{margin:0 0 8px;font-size:28px;color:#ffe25a;text-shadow:0 3px 0 var(--ink)}
+#webglRecover p{margin:0 0 14px;font-size:18px;text-shadow:0 2px 0 var(--ink)}
+#webglRecover .btn{min-width:200px;min-height:48px}
