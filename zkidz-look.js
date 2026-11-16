@@ -3,7 +3,7 @@
 // Touches ONLY character rigs passed to applyVisionLook(); never coral/scene meshes.
 // Keeps every node, name and hierarchy from buildOllie() unchanged, so addEquipment() and animateChar() keep working.
 // All materials/geometries are SHARED + CACHED (buildOllie runs on every outfit change). Nothing runs per frame.
-import * as THREE from './vendor/three.module.min.js?v=20261116-9';
+import * as THREE from './vendor/three.module.min.js?v=20261116-10';
 
 /** ONE switch for ACES. Off = game's current LinearToneMapping @ 1.0. */
 export const VISION_ACES = true;

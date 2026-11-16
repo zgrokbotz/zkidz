@@ -1,15 +1,16 @@
 // ZKIDZ – Ocean Maze prototype. Three.js, no build step.
-import * as THREE from './vendor/three.module.min.js?v=20261116-9';
-import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-9';
-import * as ECO from './economy.js?v=20261116-9';
-import { openReefSort } from './sort/reef-sort.js?v=20261116-9';
-import { openReefDiner } from './dash/dash.js?v=20261116-9';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-9';
-import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-9';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-9';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-9';
-import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-9';
-import * as LB from './lb.js?v=20261116-9';
+import * as THREE from './vendor/three.module.min.js?v=20261116-10';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-10';
+import * as ECO from './economy.js?v=20261116-10';
+import { openReefSort } from './sort/reef-sort.js?v=20261116-10';
+import { openReefDiner } from './dash/dash.js?v=20261116-10';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-10';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-10';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-10';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-10';
+import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-10';
+import * as LB from './lb.js?v=20261116-10';
+import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261116-10';
 
 /* ===================== DATA ===================== */
 const RARITIES = [
@@ -55,6 +56,8 @@ const ITEMS = [
   { id:'jacket_galaxy',name:'Galaxy Jacket',     slot:'top',   r:'cosmic',   em:'🌌', m:{type:'jacket', c:0x5a2bd8, glow:0x2a0a80} },
   { id:'visor_star',   name:'Starlight Visor',   slot:'eyes',  r:'cosmic',   em:'🔮', m:{type:'visor', c:0x9b6bff} },
 ];
+applyLegacyFraming(ITEMS);
+ITEMS.push(...ITEMS_V2); // 26 legacy + 56 v2 = 82; Shop/Closet already iterate ITEMS
 ITEMS.forEach(i=>i.price=ECO.ITEM_PRICE[i.r]); // economy v2: Epic items 800 (Zander); everything else = PRICE
 const IMAP = Object.fromEntries(ITEMS.map(i=>[i.id,i]));
 const SLOT_NAMES = { hat:'Headwear', eyes:'Eyewear', top:'Shirts & Jackets', bottom:'Pants', shoes:'Shoes', wrist:'Bracelets', hands:'Gloves' };
@@ -160,7 +163,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-9';
+const ASSET_V = '20261116-10';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -429,7 +432,7 @@ function buildOllieLegacy(opts={}){
   g.userData.parts = parts; g.userData.walk = 0;
   return g;
 }
-function addEquipment(g, parts, eq){
+function addEquipmentOriginal(g, parts, eq){
   for(const slot in eq){ const it = IMAP[eq[slot]]; if(!it) continue; const m = it.m;
     const MM = (c,o={}) => { const x=mat(c,{ rough: m.metal?.25:.55, metal: m.metal?.8:0, emissive:m.glow||0, ...o }); return x; };
     const H = ['cap','beanie','crown','helmet'].includes(m.type) ? parts.hatAnchor : parts.eyeAnchor;
@@ -453,10 +456,12 @@ function addEquipment(g, parts, eq){
 function rainbowMat(){ const c=document.createElement('canvas'); c.width=8; c.height=64; const g=c.getContext('2d'); ['#ff4f6d','#ff9a1f','#ffd52e','#5be04a','#2bc0ff','#9b5bff'].forEach((col,i)=>{ g.fillStyle=col; g.fillRect(0,i*64/6,8,64/6+1); }); const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return new THREE.MeshStandardMaterial({map:t,roughness:.7}); }
 function heartShape(){ const s=new THREE.Shape(); s.moveTo(0,-.6); s.bezierCurveTo(-.9,0,-.7,.8,0,.35); s.bezierCurveTo(.7,.8,.9,0,0,-.6); return s; }
 function starShape(){ const s=new THREE.Shape(); for(let i=0;i<10;i++){ const r=i%2?.32:.7, a=i/10*Math.PI*2+Math.PI/2; const x=Math.cos(a)*r,y=Math.sin(a)*r; i?s.lineTo(x,y):s.moveTo(x,y);} return s; }
+installAccessoriesV2({ getProfile:()=>ACTIVE_PROFILE });
+const addEquipment = wrapAddEquipment(addEquipmentOriginal, IMAP);
 installOllieV2({ CMAP, isPlayable, dressSpecies, addEquipment, getSave:()=>S, setProfile:P=>{ ACTIVE_PROFILE=P; } });
 setOllieVariant('C');
 function buildOllie(opts){ return buildOllieV2(opts); }
-function animateOllie(o, speed, dt, t){ animateChar(o, 'move', speed, dt, t); }
+function animateOllie(o, speed, dt, t){ animateChar(o, 'move', speed, dt, t); tickAccessories(o, dt, t); }
 function animateOllieLegacy(o, speed, dt, t){
   const p=o.userData.parts, rig=p.rig; o.userData.walk += dt*speed*2.6;
   const w=o.userData.walk; const target=Math.min(1,speed/4); o.userData.amt = (o.userData.amt||0) + (target-(o.userData.amt||0))*Math.min(1,dt*8); const amt=o.userData.amt;
@@ -955,7 +960,7 @@ function updateGame(dt, t){
   drawMinimap();
 }
 function updateLobby(dt,t){ uOcc.on.value=0;
-  const o=lobby.ollie; if(!o) return; animateChar(o,'idle',0,dt,t); if(!dragging) lobby.extra=(lobby.extra||0)*(1-Math.min(1,dt*1.2)); o.rotation.y = Math.sin(t*.6)*.12 + (lobby.extra||0);
+  const o=lobby.ollie; if(!o) return; animateChar(o,'idle',0,dt,t); tickAccessories(o, dt, t); if(!dragging) lobby.extra=(lobby.extra||0)*(1-Math.min(1,dt*1.2)); o.rotation.y = Math.sin(t*.6)*.12 + (lobby.extra||0);
   lobby.bubbles.userData.update(dt); lobby.rays.userData.update(t,camera);
   applyLobbyCamera();
 }
@@ -964,13 +969,20 @@ function updateLobby(dt,t){ uOcc.on.value=0;
    never oscillates. No per-frame getBoundingClientRect. */
 const lobbyFrame = { key:'', pos:null, look:null };
 function invalidateLobbyFrame(){ lobbyFrame.key=''; }
-function lobbyFrameKey(){ const eq=S.equipped||{}; return [innerWidth, innerHeight, viewOffsetMode||'', S.selChar||'', eq.hat||''].join('|'); }
+function lobbyFrameKey(){ const eq=S.equipped||{}; return [innerWidth, innerHeight, viewOffsetMode||'', S.selChar||'', eq.hat||'', eq.top||'', eq.shoes||''].join('|'); }
 function captureLobbyRestBox(){
   const o=lobby.ollie; if(!o){ lobby.restBox=null; return; }
   const ry=o.rotation.y; o.rotation.y=0; o.updateMatrixWorld(true);
   const box=new THREE.Box3().setFromObject(o);
   const pad=Math.max(0.16, (box.max.y-box.min.y)*0.12);
   box.max.y += pad;
+  const eq = viewOffsetMode==='shop' ? shopEq() : (S.equipped||{});
+  const mot=outfitMotionPad(eq, IMAP);
+  const sc=o.scale.x;
+  box.max.y += mot.up * sc;
+  box.max.x += mot.side * sc; box.min.x -= mot.side * sc;
+  box.min.z -= mot.back * sc;
+  box.max.z += (mot.front||0) * sc;
   lobby.restBox=box;
   o.rotation.y=ry; o.updateMatrixWorld(true);
 }
@@ -1095,7 +1107,15 @@ function openSettings(quiet){ if(!quiet) SFX.click(); const cur=S.quality||'auto
     [opt('auto','AUTO'),opt('high','HIGH'),opt('low','LOW'),['CLOSE','gray',hideModal]]);
   const mb=$('#setMusicBtn'); if(mb) mb.onclick=()=>{ setMusicOn(!musicEnabled()); openSettings(true); }; }
 $('#gearBtn').onclick=()=>openSettings();
-$('#profileBtn').onclick=()=>{ const n=prompt('Your player name:', S.name); if(n&&n.trim()){ S.name=n.trim().slice(0,16); save(); } };
+$('#profileBtn').onclick=async ()=>{
+  const n=prompt('Your player name:', S.name);
+  if(!n||!n.trim()) return;
+  const name=n.trim();
+  let res=null;
+  try{ res=await LB.checkNickname(name); }catch(e){ res=LB.checkNicknameLocal(name); }
+  if(!res||!res.ok){ toast("Let's pick a different name!"); return; }
+  S.name=res.nickname||name; save(); refreshCoins();
+};
 $$('[data-open]').forEach(b=>b.onclick=()=>{ SFX.click(); openPanel(b.dataset.open); });
 $('#panelBack').onclick=()=>{ SFX.click(); closePanel(); };
 let panelState={};
@@ -1281,4 +1301,4 @@ resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lob
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
 hookLB();
 window.__zkidzLB = LB;
-window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, startDash, startHide, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, lobbyProbe, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
+window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, startDash, startHide, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, lobbyProbe, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, HEAVENLY_EQ, LAVA_EQ, IMAP, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };

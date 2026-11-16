@@ -303,3 +303,184 @@ export function noteFor(board, mode, s){
   }
   return star + `<p class="note">Showing this device only — could not reach the online board. Sample players are placeholders.</p>`;
 }
+
+
+/* ---------- kid-safe name check (profile button + offline fallback) ---------- */
+export const NICK_FRIENDLY = "Let's pick a different name!";
+
+const LOCAL_BLOCK = new Set([
+  // profanity
+  'fuck','fucking','fucked','fucker','fuckers','fucks','motherfucker','motherfuck',
+  'fck','fuk','fuc','fuq','fvck','phuck','phuk','fcuk','fukc','fucc','fuckin','fock',
+  'shit','shits','shitty','shitting','bullshit','shithead','shyt','sht','shlt',
+  'bitch','bitches','bitchy','biatch','btch','bytch','bich',
+  'damn','dammit','damnit','goddamn','goddam',
+  'ass','asses','asshole','assholes','asshat','dumbass','badass','jackass','smartass','fatass','lazyass',
+  'arse','arses','arsehole','azz','bastard','bastards',
+  'piss','pisses','pissed','pisser','pissoff',
+  'dick','dicks','dickhead','dickheads','dck',
+  'cock','cocks','cocky','cocksuck','cocksucker',
+  'pussy','pussies','puss','cunt','cunts','cnt','twat','twats',
+  'wank','wanker','wanking','wankers','prick','pricks',
+  'bollocks','bugger','bloodyhell','crap','crappy','craps',
+  'slut','sluts','slutty','whore','whores','hooker','hookers',
+  'tit','tits','titties','titty','boob','boobs','boobies','boobie','nipple','nipples',
+  'jerkoff','jackoff','handjob','blowjob','blowjobs','handjobs','suckmydick','suckdick',
+  // sexual
+  'sex','sexy','sexual','sexist','sexing','sexed',
+  'porn','porno','pornos','pornography','xxx','xxxl','nsfw',
+  'nude','nudes','naked','nudity','nudist',
+  'penis','penile','vagina','vaginal','clit','clitoris','vulva',
+  'orgasm','orgasms','horny','hornier',
+  'onlyfans','milf','dilf','dildo','dildos','vibrator',
+  'anal','analsex','oral','oralsex','cum','cumming','semen','sperm','ejaculate',
+  'rape','raped','rapist','raping','rapes',
+  'molest','molester','molesting','molested',
+  'hentai','erotica','erotic','orgy','orgies','incest','incestuous',
+  'threesome','bondage','fetish','fetishes','bdsm','kinky','kink',
+  'stripper','strippers','stripclub','brothel','masturbate','masturbating','masturbation',
+  'jizz','dong','wang','boner','boners','hardon','erection','condom','condoms','viagra',
+  'pedo','pedophile','pedophilia','paedo','paedophile','pedobear',
+  'childporn','childsex','kiddieporn','loli','lolita','lolicon','shotacon','shota',
+  'preteen','underage','jailbait','jbail','bestiality','zoophile','necrophile','necrophilia',
+  // slurs / hate
+  'nigger','niggers','nigga','niggas','nigg','negro','negros','darkie','darky',
+  'chink','chinks','gook','gooks','spic','spics','spick',
+  'kike','kikes','wetback','wetbacks','beaner','beaners',
+  'paki','pakis','honky','honkie','redskin','redskins','squaw',
+  'fag','fags','faggot','faggots','fagot','homos','homo',
+  'dyke','dykes','tranny','trannies','shemale','shemales',
+  'retard','retards','retarded','mongoloid',
+  'cripple','cripples','spaz','spazz','spastic',
+  'nazi','nazis','nazism','hitler','swastika','swastikas','kkk','klan','klansman',
+  'racist','racism','whitepower','siegheil','heilhitler','terrorist','terrorists','isis',
+  // drugs
+  'weed','weedz','marijuana','marihuana','cannabis','cannibus',
+  'cocaine','cocain','heroin','meth','methhead','crystalmeth',
+  'fentanyl','fent','crackhead','crackheads','lsd','ecstasy','molly','mdma',
+  'xanax','oxy','oxycodone','percocet','vicodin',
+  'vape','vaping','vapes','vaper','bong','bongs','blunt','blunts',
+  'stoned','stoner','stoners','highaf','dealer','dealers','drugdealer','drugs','dope','doped',
+  'opium','opioid','opioids','ketamine','shrooms','pothead','potheads','ganja','blazeit','420blaze',
+  // violence / gore
+  'killer','killers','killing','killthem','killme',
+  'murder','murderer','murderers','murdering','murdered',
+  'suicide','suicidal','kys','kms','killyourself',
+  'gore','gory','gored','bloody','bloodbath','bloodlust',
+  'shooter','shooters','schoolshoot','gun','gunman','firearm','firearms',
+  'stab','stabber','stabbing','stabbed','bomb','bombs','bomber','bombing','terror',
+  'torture','torturer','torturing','tortured','abuse','abuser','abusing','abused',
+  'die','death','deaths','slaughter','massacre','genocide',
+  'hangyourself','cutyourself','bleedout','behead','beheading','decapitate','dismember',
+  // bathroom
+  'poop','poops','poopy','poo','poos','pooping','pooped',
+  'pee','pees','peeing','peed','peepee',
+  'fart','farts','farting','farted','farty',
+  'toilet','toilets','urinal','urinals','diarrhea','diarrhoea','turd','turds',
+  'butthole','buttholes','booty','booties','fartface','poopface','poohead',
+  'dung','feces','faeces','urine','urinating','stinkybutt','stinkypoop',
+  // insults often blocked in kids games
+  'stfu','wtf','omfg','gtfo','loser','losers','idiot','idiots','stupid','stupidass',
+  'dumb','dumbo','hateyou','ihateyou','ihate','ugly','ugliest','fatso','fatty','shut','shutup','shutit',
+  // urls / socials
+  'http','https','www','html','instagram','insta','tiktok','ticktock','facebook',
+  'snapchat','discord','youtube','youtuber','twitch','whatsapp','telegram',
+  'reddit','pornhub','xvideos','xnxx','dotcom','dotnet','dotorg','dotio','hell'
+]);
+
+const LOCAL_ALLOW = new Set([
+  'class','classes','classic','classical','classify','classroom',
+  'grass','grassy','grasses','hello','hallo','hellos',
+  'shell','shells','seashell','seashells','shelly','shellie',
+  'grape','grapes','grapefruit','scunthorpe',
+  'little','littlest','title','titles','stitch','stitches','titan','titans','titanium',
+  'cucumber','cucumbers','document','documents',
+  'peacock','peacocks','cocktail','cockatoo','cockatoos',
+  'skill','skills','skilled','skillet','killian',
+  'lollipop','lollipops','lolipop','amongus','among',
+  'bass','basses','passion','passionate','passage','passages','pass','passed','passing',
+  'assume','assumption','assistant','assist','cassette','cassie','cassidy',
+  'michelle','mitchell','shelley','therapy','therapist','therapeutic',
+  'scrape','scrapes','scrap','scraps','scrappy','draper','drapes',
+  'firecracker','firecrackers','butterfly','butterflies','butter',
+  'button','buttons','cannon','cannons','island','islands','sunset','sunsets',
+  'student','students','studying','study','underwater','understand','understanding',
+  'japanese','chinese','english','hotdog','hotdogs','arsenal',
+  'glass','glasses','grasshopper','associate','associates',
+  'balloon','balloons','ballerina','sunny','sunshine',
+  'coral','corals','coralreef','choral','floral','pastoral','moral','morally','orally','oracle','oracles',
+  'tweed','tweedy'
+]);
+
+function _leet(t, one){
+  return String(t||'').toLowerCase()
+    .replace(/0/g,'o').replace(/3/g,'e').replace(/4/g,'a').replace(/5/g,'s')
+    .replace(/7/g,'t').replace(/@/g,'a').replace(/\$/g,'s').replace(/8/g,'b')
+    .replace(/2/g,'z').replace(/1/g, one).replace(/ph/g,'f');
+}
+function _strip(t){ return String(t||'').toLowerCase().replace(/[^a-z]+/g,''); }
+function _collapse(t, minRun){
+  const n=Math.max(minRun,2);
+  const re=new RegExp('([a-z])\\1{'+(n-1)+',}','g');
+  return String(t||'').replace(re,'$1');
+}
+function _variants(raw){
+  const out=[];
+  for(const one of ['i','l']){
+    const mapped=_leet(raw, one);
+    const stripped=_strip(mapped);
+    out.push(stripped, _collapse(stripped,3), _collapse(stripped,2));
+  }
+  return out;
+}
+function _tokens(raw){
+  const toks=[];
+  for(const one of ['i','l']){
+    const mapped=_leet(raw, one);
+    for(const tok of mapped.trim().split(/\s+/)){
+      const t=_collapse(_strip(tok),2);
+      if(t) toks.push(t);
+    }
+  }
+  return toks;
+}
+function _allowCovers(norm, word){
+  for(const a of LOCAL_ALLOW){
+    if(a.includes(word) && norm.includes(a)) return true;
+  }
+  return false;
+}
+
+export function checkNicknameLocal(raw, max=12){
+  const n=String(raw||'').trim();
+  if(!n || n.length<3 || n.length>max) return { ok:false, error:'bad_name', message:NICK_FRIENDLY };
+  if(!/^[A-Za-z0-9]+( [A-Za-z0-9]+)*$/.test(n)) return { ok:false, error:'bad_name', message:NICK_FRIENDLY };
+  const compact=n.replace(/\s+/g,'');
+  if(/[0-9]{7,}/.test(compact)) return { ok:false, error:'bad_name', message:NICK_FRIENDLY };
+  if(/(https?|www|dotcom|dotnet|dotorg|instagram|tiktok|facebook|snapchat|discord|youtube|whatsapp|telegram)/i.test(compact)){
+    return { ok:false, error:'bad_name', message:NICK_FRIENDLY };
+  }
+  if(n.length>12 && /\s/.test(n)) return { ok:false, error:'bad_name', message:NICK_FRIENDLY };
+  const variants=_variants(n);
+  const tokens=_tokens(n);
+  for(const w of LOCAL_BLOCK){
+    for(const v of variants){
+      if(w.length>=4){ if(v.includes(w) && !_allowCovers(v,w)) return { ok:false, error:'bad_name', message:NICK_FRIENDLY }; }
+      else if(v===w) return { ok:false, error:'bad_name', message:NICK_FRIENDLY };
+    }
+    for(const tok of tokens){
+      if(tok===w) return { ok:false, error:'bad_name', message:NICK_FRIENDLY };
+      if(w.length>=4 && tok.includes(w) && !_allowCovers(tok,w)) return { ok:false, error:'bad_name', message:NICK_FRIENDLY };
+    }
+  }
+  return { ok:true, nickname:n };
+}
+
+export async function checkNickname(raw, max=12){
+  const n=String(raw||'').trim();
+  try{
+    const data=await rpc('check_nickname', { p_nickname:n });
+    if(data && typeof data.ok==='boolean') return data;
+  }catch(e){}
+  return checkNicknameLocal(n, max);
+}
