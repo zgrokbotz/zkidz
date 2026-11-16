@@ -3,11 +3,11 @@ import * as THREE from './vendor/three.module.min.js';
 import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js';
 import * as ECO from './economy.js';
 import { openReefSort } from './sort/reef-sort.js';
-import { openReefDiner } from './dash/dash.js?v=20261116-4';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-4';
+import { openReefDiner } from './dash/dash.js?v=20261116-5';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-5';
 import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-4';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-4';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-5';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-5';
 import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js';
 
 /* ===================== DATA ===================== */
@@ -159,7 +159,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-4';
+const ASSET_V = '20261116-5';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
