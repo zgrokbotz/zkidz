@@ -27,6 +27,16 @@ export const MAZE_FINISH_BONUS = 20;        // was 10
 export const RACE_FINISH_BONUS = 20;        // was 10
 export const RACE_SPAWN = 48;               // unchanged spawn; ALL collected now credit
 export const CARDS_BASE = 15;               // was 10; cards still 15 + 2*pairs + memory bonus
+export const DASH_BASE = 15;                // Reef Diner: comparable to Match Cards; Zokenomics can tune
+export const DASH_WIN_BONUS = 8;
+export const DASH_OVER_STEP = 30;           // +1 per 30 stars over the goal
+export const DASH_OVER_CAP = 10;
+export function dashEarn(score, goal, won){
+  if(!won) return { earned:0, base:0, bonus:0 };
+  const over = Math.max(0, (score|0) - (goal|0));
+  const bonus = DASH_WIN_BONUS + Math.min(DASH_OVER_CAP, Math.floor(over / DASH_OVER_STEP));
+  return { earned: DASH_BASE + bonus, base:DASH_BASE, bonus };
+}
 export const REEF_SORT_FIRST_CLEAR = 30;    // was 20
 export const REEF_SORT_REPLAY = 15;         // was 10
 export const RS_BONUS_MIN_LEVEL = 7, RS_COMBO2 = 2, RS_COMBO3 = 3, RS_ROW_CLEAR = 3;

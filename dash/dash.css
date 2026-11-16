@@ -1,0 +1,58 @@
+/* Reef Diner — all rules scoped under #reefDash so nothing leaks into the main game. */
+@font-face{font-family:'Lilita One';src:url('../fonts/LilitaOne.woff2') format('woff2');font-display:swap}
+#reefDash{--ink:#16163a;--font:'Lilita One','Arial Black','Trebuchet MS',system-ui,sans-serif;position:fixed;inset:0;z-index:80;font-family:var(--font);color:#fff;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;background:#123a6a}
+#reefDash *{box-sizing:border-box}
+#reefDash button{font-family:var(--font);cursor:pointer;border:none;color:#fff}
+#reefDash .rd-out,#reefDash .rd-btn,#reefDash .rd-title,#reefDash .rd-stat,#reefDash .rd-modal h2,#reefDash .rd-toast{text-shadow:0 3px 0 var(--ink),2px 2px 0 var(--ink),-2px 2px 0 var(--ink),2px -2px 0 var(--ink),-2px -2px 0 var(--ink)}
+
+#reefDash .rd-bg{position:absolute;inset:0;background:linear-gradient(#1a5ea8 0%,#1a7ab8 42%,#c9e7ff 42%,#e8c878 100%);pointer-events:none;overflow:hidden}
+#reefDash .rd-bg .ray{position:absolute;top:-10%;width:18%;height:80%;background:linear-gradient(rgba(255,255,255,.18),transparent);transform:skewX(-12deg);pointer-events:none}
+#reefDash .rd-bg i{position:absolute;bottom:-20px;border-radius:50%;background:rgba(255,255,255,.28);border:2px solid rgba(255,255,255,.45);animation:rdBubble linear infinite;pointer-events:none}
+@keyframes rdBubble{0%{transform:translateY(0) scale(1);opacity:.7}100%{transform:translateY(-120vh) scale(.6);opacity:0}}
+
+#reefDash .rd-wrap{position:absolute;inset:0;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right,0px)) max(8px,env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));gap:6px}
+#reefDash .rd-top{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-height:52px}
+#reefDash .rd-btn{min-width:44px;min-height:44px;padding:0 14px;border-radius:14px;border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);font-size:20px;background:#2b6fd6}
+#reefDash .rd-btn:active{transform:translateY(2px);box-shadow:0 2px 0 var(--ink)}
+#reefDash .rd-btn.green{background:#2db86a}
+#reefDash .rd-btn.gold{background:#f0b429;color:#16163a;text-shadow:none}
+#reefDash .rd-btn.pink{background:#e85aa0}
+#reefDash .rd-title{flex:1;text-align:center;line-height:1.05}
+#reefDash .rd-title small{display:block;font-size:13px;opacity:.85;letter-spacing:.5px}
+#reefDash .rd-title b{display:block;font-size:clamp(20px,4.4vw,28px)}
+#reefDash .rd-stats{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:58%}
+#reefDash .rd-stat{background:rgba(15,30,70,.72);border:3px solid var(--ink);border-radius:999px;padding:6px 10px;font-size:clamp(14px,2.6vw,18px);min-height:36px;display:flex;align-items:center;gap:4px;white-space:nowrap}
+
+#reefDash .rd-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+#reefDash .rd-stage canvas{display:block;max-width:100%;max-height:100%;width:auto;height:auto;touch-action:none;border:4px solid var(--ink);border-radius:18px;box-shadow:0 8px 0 var(--ink),0 16px 24px rgba(0,20,60,.35);background:#7ec8e8}
+
+#reefDash .rd-toast{position:absolute;left:50%;top:64px;transform:translate(-50%,-16px);background:rgba(15,25,60,.92);border:3px solid var(--ink);border-radius:16px;padding:8px 16px;font-size:20px;opacity:0;transition:.25s;z-index:58;pointer-events:none;text-align:center;max-width:92vw}
+#reefDash .rd-toast.show{opacity:1;transform:translate(-50%,0)}
+
+#reefDash .rd-modal{position:absolute;inset:0;background:rgba(5,15,45,.72);display:flex;align-items:center;justify-content:center;z-index:56;backdrop-filter:blur(3px);padding:12px}
+#reefDash .rd-modal.hidden{display:none}
+#reefDash .rd-card{width:min(520px,94vw);max-height:min(92vh,720px);overflow:auto;background:linear-gradient(#2b6fd6,#1a4ea8);border:5px solid var(--ink);border-radius:24px;box-shadow:0 10px 0 var(--ink),0 18px 30px rgba(0,0,0,.35);padding:18px 18px 16px;text-align:center}
+#reefDash .rd-card h2{margin:0 0 8px;font-size:clamp(28px,6vw,40px);color:#ffe25a}
+#reefDash .rd-card p{margin:6px 0;font-size:clamp(16px,3.4vw,20px);line-height:1.35;text-shadow:0 2px 0 var(--ink)}
+#reefDash .rd-how{text-align:left;background:rgba(8,20,50,.35);border:3px solid var(--ink);border-radius:16px;padding:10px 12px;margin:10px 0}
+#reefDash .rd-how li{margin:4px 0;font-size:clamp(15px,3.2vw,18px)}
+#reefDash .rd-levels{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:12px 0 6px}
+#reefDash .rd-lvl{min-width:88px;min-height:52px;border-radius:14px;border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);background:#e9c98a;color:#16163a;font-size:16px;padding:4px 10px;line-height:1.1}
+#reefDash .rd-lvl small{display:block;font-size:12px;opacity:.8}
+#reefDash .rd-lvl.sel{background:#ffe25a;box-shadow:0 4px 0 var(--ink),0 0 0 3px #fff}
+#reefDash .rd-lvl.lock{opacity:.45;filter:grayscale(.4)}
+#reefDash .rd-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:12px}
+#reefDash .rd-actions .rd-btn{min-width:140px;min-height:48px;font-size:20px}
+#reefDash .rd-reward{margin-top:8px;font-size:18px;color:#9fe8ff}
+
+@media (orientation:landscape) and (max-height:500px){
+  #reefDash .rd-wrap{padding:4px 8px;gap:4px}
+  #reefDash .rd-top{min-height:44px;gap:6px}
+  #reefDash .rd-title b{font-size:18px}
+  #reefDash .rd-title small{font-size:11px}
+  #reefDash .rd-stat{font-size:14px;padding:4px 8px;min-height:32px}
+  #reefDash .rd-btn{min-height:44px}
+  #reefDash .rd-card{padding:10px 14px}
+  #reefDash .rd-card h2{font-size:26px;margin:0 0 4px}
+  #reefDash .rd-how{margin:6px 0;padding:6px 10px}
+}

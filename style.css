@@ -531,6 +531,7 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
   #lobbyDock .modes{position:relative;left:auto;right:auto;bottom:auto;display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--u)*.55);padding:calc(var(--u)*.7);width:100%;margin:0;box-sizing:border-box}
   #lobbyDock .modes::before{grid-column:1/-1;margin:0 0 2px}
   #lobbyDock .mode{min-width:0;width:100%;min-height:44px;font-size:calc(var(--u)*2.15);padding:calc(var(--u)*.25) calc(var(--u)*.4);line-height:1.05;white-space:normal;transform:none}
+  #lobbyDock .modes > .mode:last-child{grid-column:1/-1;width:70%;justify-self:center}
   #lobbyDock .mode.sel{transform:none;box-shadow:0 calc(var(--u)*.4) 0 var(--ink),0 0 0 calc(var(--u)*.28) #fff}
   #lobbyDock #playRow{position:relative;left:auto;bottom:auto;transform:none;width:100%;max-width:100%}
   #lobbyDock #playBtn,#lobbyDock .btn.big{min-height:44px;width:100%;max-width:100%;font-size:calc(var(--u)*5.2);padding:calc(var(--u)*.7) calc(var(--u)*2)}
@@ -551,4 +552,17 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
   #lobby .side.left{left:calc(var(--u)*2 + env(safe-area-inset-left,0px))}
   #lobby .side.right{top:calc(var(--u)*6.6);right:calc(var(--u)*2 + env(safe-area-inset-right,0px))}
   #lobby .sq{height:auto;min-height:44px;min-width:44px;padding:calc(var(--u)*.15) 0 calc(var(--u)*.25)}
+}
+
+
+/* Five mode buttons: compact 2-column MODE grid so the panel stays short
+   enough for Chests / Leaderboard and does not overlap PLAY. */
+.modes{display:grid;grid-template-columns:1fr 1fr;width:calc(var(--u)*24)}
+.modes::before{grid-column:1/-1}
+.mode{min-width:0;width:100%;box-sizing:border-box;white-space:normal;line-height:1.05;text-align:center;font-size:calc(var(--u)*1.9);padding:calc(var(--u)*.3) calc(var(--u)*.5)}
+.modes > .mode:last-child{grid-column:1/-1}
+@media (orientation:landscape) and (max-height:500px){
+  #lobby .modes{display:grid;grid-template-columns:1fr 1fr;width:min(230px,34vw);gap:calc(var(--u)*.22);padding:calc(var(--u)*.25) calc(var(--u)*.4)}
+  #lobby .mode{min-height:44px;min-width:0;font-size:calc(var(--u)*1.55);padding:calc(var(--u)*.06) calc(var(--u)*.35)}
+  #lobby .modes > .mode:last-child{grid-column:1/-1;width:auto}
 }
