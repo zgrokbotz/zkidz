@@ -1,16 +1,16 @@
 // ZKIDZ – Ocean Maze prototype. Three.js, no build step.
-import * as THREE from './vendor/three.module.min.js?v=20261116-10';
-import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-10';
-import * as ECO from './economy.js?v=20261116-10';
-import { openReefSort } from './sort/reef-sort.js?v=20261116-10';
-import { openReefDiner } from './dash/dash.js?v=20261116-10';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-10';
-import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-10';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-10';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-10';
-import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-10';
-import * as LB from './lb.js?v=20261116-10';
-import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261116-10';
+import * as THREE from './vendor/three.module.min.js?v=20261116-11';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-11';
+import * as ECO from './economy.js?v=20261116-11';
+import { openReefSort } from './sort/reef-sort.js?v=20261116-11';
+import { openReefDiner } from './dash/dash.js?v=20261116-11';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-11';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-11';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-11';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-11';
+import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-11';
+import * as LB from './lb.js?v=20261116-11';
+import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261116-11';
 
 /* ===================== DATA ===================== */
 const RARITIES = [
@@ -96,8 +96,10 @@ const CHARS = [
   { id:'inky',   name:'Inky the Octopus',     em:'🐙', r:'rare',     color:0x7a3ad8 },
   { id:'milo',   name:'Milo the Manta Ray',   em:'🐟', r:'epic',     color:0x22306b },
   { id:'wally',  name:'Wally the Whale',      em:'🐋', r:'legendary',color:0x3f9be8 },
+  { id:'kelpie', name:'Kelpie the Seaweed',   em:'🌿', r:'rare',     color:0x5c9a3c },
+  { id:'giga',   name:'Giga the Giant Squid', em:'🦑', r:'epic',     color:0xc45a3c },
 ];
-const ART_IDS = ['ollie','pip','sunny','bubbles','nova','dash','shelly','pinchy','coco','squirt','lulu','percy','sharkie','oscar','wade','polly','hammy','zippy','bella','tusk','mo','gus','angie','nudi','echo','jelly','stella','finn','puff','hank','inky','milo','wally'];
+const ART_IDS = ['ollie','pip','sunny','bubbles','nova','dash','shelly','pinchy','coco','squirt','lulu','percy','sharkie','oscar','wade','polly','hammy','zippy','bella','tusk','mo','gus','angie','nudi','echo','jelly','stella','finn','puff','hank','inky','milo','wally','kelpie','giga'];
 CHARS.forEach(c=>c.art = ART_IDS.includes(c.id));
 const CMAP = Object.fromEntries(CHARS.map(c=>[c.id,c]));
 function artUrl(id){ return (window.__ART && window.__ART[id]) || `art/${id}.jpg?v=${ASSET_V}`; }
@@ -163,7 +165,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-10';
+const ASSET_V = '20261116-11';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -321,7 +323,7 @@ function softMat(color, ghost, o={}){
   if(ghost){ m.transparent=true; m.opacity=.4; m.depthWrite=false; } else patch(m, { rim:[o.rim??0xffe2c4, o.rimS??.28, 2.6] });
   return m; }
 const SHOP_STAND = `<svg class="shop-svg" viewBox="0 0 64 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 8h52l-5 16H11L6 8z" fill="#fff4d6" stroke="#16163a" stroke-width="3" stroke-linejoin="round"/><path d="M14 8l4 16h9L23 8z" fill="#ff5b6c"/><path d="M36 8l4 16h9L45 8z" fill="#ff5b6c"/><path d="M6 8h52" fill="none" stroke="#16163a" stroke-width="3"/><circle cx="14" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="26" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><circle cx="38" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="50" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><rect x="12" y="28" width="40" height="20" rx="4" fill="#e39a3a" stroke="#16163a" stroke-width="3"/><rect x="20" y="32" width="24" height="10" rx="2" fill="#7fd6ff" stroke="#16163a" stroke-width="2"/><polygon points="32,4 34.2,8.6 39.2,9 35.4,12.4 36.5,17.2 32,14.6 27.5,17.2 28.6,12.4 24.8,9 29.8,8.6" fill="#ffc94a" stroke="#16163a" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
-const PLAYABLE = new Set(['ollie','dash','finn','bubbles','oscar','wade']);
+const PLAYABLE = new Set(['ollie','dash','finn','bubbles','oscar','wade','pip','sunny','jelly','lulu','percy','nova','kelpie','giga']);
 function isPlayable(id){ return PLAYABLE.has(id); }
 function flukeGroup(mat){
   const g=new THREE.Group();

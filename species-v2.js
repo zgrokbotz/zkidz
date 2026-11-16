@@ -2,8 +2,9 @@
 // Replaces game.js dressSpecies(): each species gets its own cached silhouette (body + head lathes), a painted clay
 // material (one shader per species: belly/patches/dots/stripes are fragment masks, so no extra meshes or textures),
 // and cached fins/tails/gills. buildOllieV2() calls buildSpeciesV2() for every non-otter playable.
-import * as THREE from './vendor/three.module.min.js?v=20261116-10';
-import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261116-10';
+import * as THREE from './vendor/three.module.min.js?v=20261116-11';
+import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261116-11';
+import { B2, buildB2, b2Profile, clothProfile as b2ClothProfile } from './species-b2.js?v=20261116-11';   // batch 2 (v4, rebuilt from the mockups)
 
 const W = 'vec3(0.97,0.96,0.93)';
 // ---------- per-species config (rig coords: y up, +z = face). Profiles are [radius, y]. ----------
@@ -102,28 +103,46 @@ vec3 zkPaint(vec3 p, vec3 base, float part){
 }` },
 };
 const KINDS = Object.keys(SPECIES_V2);
+export const BATCH2 = ['pip','sunny','jelly','lulu','percy','nova','kelpie','giga'];
+
+export const FRAME_EXTENT = {
+  ollie: { w:2.04, h:2.23, d:1.72, x0:-0.68, x1:1.36, y0:-0.01, y1:2.22, z0:-1.09, z1:0.63 },
+  wade: { w:2.14, h:2.39, d:2.34, x0:-1.07, x1:1.07, y0:-0.02, y1:2.37, z0:-1.56, z1:0.78 },
+  dash: { w:1.49, h:2.27, d:1.69, x0:-0.74, x1:0.74, y0:0, y1:2.27, z0:-0.98, z1:0.7 },
+  finn: { w:1.63, h:2.21, d:1.52, x0:-0.81, x1:0.81, y0:-0.01, y1:2.2, z0:-0.92, z1:0.6 },
+  bubbles: { w:2.22, h:2.28, d:1.92, x0:-1.11, x1:1.11, y0:0, y1:2.28, z0:-1.3, z1:0.62 },
+  oscar: { w:1.66, h:2.62, d:1.65, x0:-0.83, x1:0.83, y0:-0.01, y1:2.61, z0:-1.06, z1:0.59 },
+  pip: { w:1.52, h:2.18, d:1.37, x0:-0.76, x1:0.76, y0:-0.03, y1:2.15, z0:-0.63, z1:0.74 },
+  sunny: { w:1.59, h:2.17, d:1.3, x0:-0.79, x1:0.79, y0:-0.02, y1:2.15, z0:-0.62, z1:0.68 },
+  jelly: { w:1.83, h:2.1, d:1.73, x0:-0.92, x1:0.92, y0:0, y1:2.1, z0:-0.84, z1:0.88 },
+  lulu: { w:2.4, h:2.4, d:1.11, x0:-1.2, x1:1.2, y0:-0.02, y1:2.39, z0:-0.55, z1:0.55 },
+  percy: { w:2.36, h:2.31, d:2.24, x0:-1.18, x1:1.18, y0:-0.01, y1:2.31, z0:-1.38, z1:0.85 },
+  nova: { w:1.78, h:2.41, d:1.78, x0:-0.89, x1:0.89, y0:-0.02, y1:2.38, z0:-1.16, z1:0.62 },
+  kelpie: { w:1.55, h:2.42, d:0.85, x0:-0.78, x1:0.78, y0:-0.02, y1:2.4, z0:-0.43, z1:0.43 },
+  giga: { w:1.61, h:2.36, d:1.28, x0:-0.8, x1:0.8, y0:-0.01, y1:2.35, z0:-0.62, z1:0.66 },
+};
 
 // ---------- cached geometry per species ----------
 const GEO = {};
 function lathes(k){
   const V = SPECIES_V2[k], N = V.neckY, rN = V.body[V.body.length - 1][0], S = V.snout;
   const P = spline([...V.body, ...V.head], 90);
-  // one continuous torso (body + head, no neck seam); the head part follows the head group in the vertex shader
   const body = torsoLathe(V, v => {
     const yl = v.y - V.headY, kk = sstep(N - V.headY, N - V.headY + .23, yl); v.x *= 1 + V.widen * kk; v.z *= 1 - V.flat * kk;
-    if(S && v.z > 0){ const e = Math.hypot(v.x / S.rx, (yl - S.y) / S.ry); if(e < 1.3) v.z += S.amt * sstep(1.3, .2, e) * sstep(.1, .35, v.z); } });
+    if(S && v.z > 0){ const e = Math.hypot(v.x / S.rx, (yl - S.y) / S.ry); if(e < 1.3) v.z += S.amt * sstep(1.3, .2, e) * sstep(.1, .35, v.z); }
+  });
   return { P, body };
 }
 function fin(shape, depth = .07, bev = .035){ const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bev, bevelSize: .035, bevelSegments: 4, curveSegments: 14, steps: 1 });
   g.translate(0, 0, -depth / 2); g.deleteAttribute('uv'); g.computeVertexNormals(); return g; }
 function finShape(pts){ const s = new THREE.Shape(); s.moveTo(pts[0][0], pts[0][1]); for(let i = 1; i < pts.length; i += 2) s.quadraticCurveTo(pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1]); return s; }
+
 function geos(k){
   if(GEO[k]) return GEO[k]; const V = SPECIES_V2[k], G = lathes(k);
   G.sphere = new THREE.SphereGeometry(1, 28, 18);
   const A = V.arm;
   if(A.kind === 'round'){ G.arm = new THREE.SphereGeometry(A.r, 22, 14); G.arm.scale(.42, 1, 1); G.arm.translate(0, -.12, 0); }
   else { const fl = A.kind === 'flipper' || A.kind === 'paddle'; G.arm = blendArm(new THREE.CapsuleGeometry(A.r, A.len, 10, 18), A.r, A.len, fl ? [.45, 1.15] : [1, .9]); }
-  // tails (built around the tail pivot; animateChar rotates the pivot)
   const T = V.tail.kind;
   if(T === 'fluke'){ const stem = new THREE.CapsuleGeometry(.12, .3, 8, 16); stem.rotateX(Math.PI / 2 - .25); stem.translate(0, .05, -.2);
     const lobe = fin(finShape([[0,0],[.18,.12],[.42,.06],[.5,-.05],[.36,-.12],[.18,-.12],[0,-.06]]), .05); lobe.rotateX(-Math.PI / 2);
@@ -139,7 +158,7 @@ function geos(k){
     const base = new THREE.SphereGeometry(.16, 18, 12); G.tail = merge([tg, base]); }
   if(V.fins.includes('dorsalTall')) G.dorsal = fin(finShape([[-.22,0],[-.05,.15],[.02,.42],[.08,.48],[.14,.3],[.18,.12],[.26,0]]), .08);
   if(V.fins.includes('dorsal')) G.dorsal = fin(finShape([[-.18,0],[-.06,.12],[.06,.3],[.12,.33],[.12,.2],[.13,.08],[.2,0]]), .06);
-  if(V.fins.includes('dorsalOrca')) G.dorsal = fin(finShape([[-.24,0],[-.08,.2],[.0,.5],[.06,.56],[.12,.3],[.18,.1],[.26,0]]), .12, .06);   // thick: reads solid from the front
+  if(V.fins.includes('dorsalOrca')) G.dorsal = fin(finShape([[-.24,0],[-.08,.2],[.0,.5],[.06,.56],[.12,.3],[.18,.1],[.26,0]]), .12, .06);
   if(V.fins.includes('topFin')) G.dorsal = fin(finShape([[-.16,0],[-.14,.1],[-.02,.13],[.04,.16],[.12,.1],[.18,.04],[.18,0]]), .07);
   if(V.fins.includes('gills')){ G.stalk = new THREE.CapsuleGeometry(.04, .3, 4, 8); G.stalk.translate(0, .19, 0); G.frond = new THREE.SphereGeometry(.05, 7, 4); G.frond.scale(1.9, .62, .7); G.frond.translate(.07, 0, 0); }
   G.smile = V.smile ? new THREE.TorusGeometry(V.smile.w, .011, 8, 24, V.smile.r * Math.PI / 2) : null;
@@ -148,6 +167,20 @@ function geos(k){
   return (GEO[k] = G);
 }
 export const SPECIES_PROFILES = {}; for(const k of KINDS) SPECIES_PROFILES[k] = spline([...SPECIES_V2[k].body, ...SPECIES_V2[k].head], 90);
+for(const k of BATCH2) Object.defineProperty(SPECIES_PROFILES, k, { enumerable: true, get: () => b2Profile(k) });   // batch 2: measured torso profile (built on first use)
+
+// Clothing profile for bodyR()/profileSlice() (tees at y=0.6–1.2, pants at 0.26–0.62).
+// Dome/mantle bodies (Jelly starts at y=0.68) must not let bodyR extrapolate below the first
+// lathe point — that blew Jelly's tee out to a 20-unit disc. Extend the first substantial
+// radius down to y=0 so a shirt becomes a band around the bell, not a giant plane.
+function clothProfile(P){
+  let i = 0; while(i < P.length && P[i].x < 0.08) i++;
+  const skirt = P[Math.min(i, P.length - 1)];
+  const out = [];
+  if(skirt.y > 0.02) out.push(new THREE.Vector2(skirt.x, 0));
+  for(let j = i; j < P.length; j++) out.push(new THREE.Vector2(Math.max(0, P[j].x), P[j].y));
+  return out;
+}
 
 function headR(P, y){ for(let i = 1; i < P.length; i++){ if(P[i].y >= y){ const a = P[i-1], b = P[i]; return a.x + (b.x - a.x) * (y - a.y) / ((b.y - a.y) || 1); } } return 0; }
 function surfZ(V, P, x, yl){ const R = headR(P, yl + V.headY), kk = sstep(V.neckY - V.headY, V.neckY - V.headY + .23, yl); const rx = R * (1 + V.widen * kk), rz = R * (1 - V.flat * kk);
@@ -156,48 +189,54 @@ function surfZ(V, P, x, yl){ const R = headR(P, yl + V.headY), kk = sstep(V.neck
 
 /** Build a V2 species (same contract as buildOllie). deps = the installOllieV2 deps (addEquipment, setProfile). */
 export function buildSpeciesV2(kind, { equipped = {}, ghost = false } = {}, D){
+  if(B2[kind]){ const g = buildB2(kind, { equipped, ghost }, D); g.userData.extent = FRAME_EXTENT[kind]; return g; }
   const V = SPECIES_V2[kind], G = geos(kind), P = SPECIES_PROFILES[kind];
   const paint = off => ({ key: kind, glsl: V.glsl, off, part: 0 });
-  const o = { rough: V.rough ?? .8, cc: V.cc ?? .05, sheen: V.cc ? .15 : .42 };
+  const o = { rough: V.rough ?? .8, cc: V.cc ?? .05, sheen: V.sheen ?? (V.cc ? .15 : .42) };
+  if(V.sheenCol != null) o.sheenCol = V.sheenCol;
   const neck = { a: +(V.neckY - .06).toFixed(3), b: +(V.neckY + .14).toFixed(3) };
   const bodyM = clay(V.color, ghost, { ...o, paint: paint([0, 0, 0]), neck });
-  const plain = clay(V.color, ghost, o), footM = clay(V.color, ghost, { ...o, paint: { ...paint([0, 0, 0]), part: 1 } });
+  const plain = clay(V.color, ghost, o);
+  const armM = V.armColor != null ? clay(V.armColor, ghost, o) : plain;
+  const footM = V.foot && V.foot.color != null ? clay(V.foot.color, ghost, o) : clay(V.color, ghost, { ...o, paint: { ...paint([0, 0, 0]), part: 1 } });
   const black = gloss(ghost);
   const g = new THREE.Group(), rig = new THREE.Group(); g.add(rig); const parts = { rig };
   const body = new THREE.Mesh(G.body, bodyM); rig.add(body); parts.body = body;
   const head = new THREE.Group(); head.position.y = V.headY; rig.add(head); parts.head = head;
-  neckTorso(body, bodyM, head, V.headY, ghost); parts.headMesh = body;   // head + body are one mesh
+  neckTorso(body, bodyM, head, V.headY, ghost); parts.headMesh = body;
   const hatA = new THREE.Group(); hatA.position.y = V.hat.y; hatA.scale.setScalar(V.hat.s); head.add(hatA); parts.hatAnchor = hatA;
   const eyeA = new THREE.Group(); eyeA.position.set(...V.eyeA.p); eyeA.scale.set(...V.eyeA.s); head.add(eyeA); parts.eyeAnchor = eyeA;
   for(const s of [-1, 1]){
     const ex = V.eye.x * s, ey = V.eye.y, eye = new THREE.Mesh(G.sphere, black); eye.name = 'eye'; eye.scale.set(...V.eye.s); eye.position.set(ex, ey, surfZ(V, P, ex, ey) - .01); eye.rotation.y = Math.asin(Math.min(.9, ex / (headR(P, ey + V.headY) || 1))) * .6; head.add(eye);
     const shine = new THREE.Mesh(G.sphere, shineMat()); shine.scale.set(.016 / V.eye.s[0], .016 / V.eye.s[1], .016 / V.eye.s[2]); shine.position.set(.3, .38, .8); eye.add(shine); if(ghost) shine.visible = false;
     const shx = headR(P, V.sh.y) - V.sh.inset, sh = new THREE.Group(); sh.position.set(shx * s, V.sh.y, V.sh.z); rig.add(sh); parts['sh' + s] = sh;
-    const arm = new THREE.Mesh(G.arm, plain); arm.position.set(.03 * s, -.16, 0); arm.rotation.set(V.arm.rx, 0, V.arm.rz * s); sh.add(arm); parts['arm' + s] = arm;
+    const arm = new THREE.Mesh(G.arm, armM); arm.position.set(.03 * s, -.16, 0); arm.rotation.set(V.arm.rx, 0, V.arm.rz * s);
+    if((V.arm.kind === 'tentacle' || V.arm.kind === 'frond') && s < 0) arm.scale.x = -1;
+    sh.add(arm); parts['arm' + s] = arm;
     const foot = new THREE.Mesh(G.sphere, footM); foot.scale.set(...V.foot.s); foot.position.set(V.foot.x * s, V.foot.y, V.foot.z); rig.add(foot); parts['foot' + s] = foot;
     if(kind === 'bubbles'){ const toeM = clay(0xe0789c, ghost); for(const k of [-1, 0, 1]){ const toe = new THREE.Mesh(G.sphere, toeM); toe.scale.set(.2, .5, .22); toe.position.set(.42 * k, -.35, .82); foot.add(toe); } }
-    if(G.stalk){ // axolotl gills: 3 frilly stalks per side; each is its own Group (animateChar wiggles groups under head)
+    if(G.stalk){
       const gillM = clay(0xff8fb8, ghost), frondM = clay(0xd64485, ghost);
       for(let i = 0; i < 3; i++){ const gg = new THREE.Group(); gg.name = 'gill'; const yl = -.06 + i * .15, x0 = (headR(P, yl + V.headY) * (1 + V.widen) - .05) * s;
         gg.position.set(x0, yl, -.04); gg.rotation.z = s * (-1.75 + i * .55); gg.rotation.y = -.35 * s;
         const st = new THREE.Mesh(G.stalk, gillM); gg.add(st);
-        // feathery: 8 pairs of soft frond plumes along the stalk, angled up and out, longest in the middle
         for(let j = 0; j < 8; j++){ const t = j / 7, len = .7 + .55 * Math.sin(Math.PI * (.15 + .7 * t)); for(const side of [-1, 1]){
           const fr = new THREE.Mesh(G.frond, frondM); fr.position.set(side * .02, .06 + j * .042, (j % 2 ? .012 : -.012)); fr.rotation.z = side > 0 ? .55 : Math.PI - .55; fr.scale.setScalar(len); gg.add(fr); } }
         const tip = new THREE.Mesh(G.frond, frondM); tip.position.set(0, .38, 0); tip.rotation.z = Math.PI / 2; tip.scale.setScalar(.8); gg.add(tip);
         head.add(gg); } }
   }
   if(G.smile){ const sm = new THREE.Mesh(G.smile, black); const y = V.smile.y; sm.position.set(0, y + V.smile.w * .55, surfZ(V, P, 0, y) + (V.smile.z || 0) * 0 - .004); sm.rotation.x = -.3; head.add(sm); }
-  if(G.dorsal){ const d = new THREE.Mesh(G.dorsal, plain); d.rotation.y = Math.PI / 2;   // fin lies in the y/z plane, sweeping back
+  if(G.dorsal){ const d = new THREE.Mesh(G.dorsal, plain); d.rotation.y = Math.PI / 2;
     if(kind === 'wade'){ d.position.set(0, 1.84 - V.headY, -.3); d.rotation.x = -.3; head.add(d); }
     if(kind === 'dash'){ d.position.set(0, 1.86 - V.headY, -.28); d.rotation.x = -.45; head.add(d); }
     if(kind === 'oscar'){ d.position.set(0, 1.84 - V.headY, -.26); d.rotation.x = -.2; d.scale.setScalar(1.3); head.add(d); }
     if(kind === 'finn'){ d.position.set(0, .5, -.1); d.rotation.x = -.15; head.add(d); } }
   const tail = new THREE.Mesh(G.tail, plain); tail.position.set(...V.tail.pos); tail.scale.setScalar(V.tail.s); rig.add(tail); parts.tail = tail;
   g.traverse(m => { if(m.isMesh) m.userData.base = true; });
-  if(D.setProfile) D.setProfile(P);
+  if(D.setProfile) D.setProfile(clothProfile(P));
   if(!ghost) D.addEquipment(rig, parts, equipped);
   g.traverse(m => { if(m.isMesh) m.castShadow = !ghost; });
   g.userData.parts = parts; g.userData.walk = 0; g.userData.kind = kind; g.userData.v2 = 'C'; g.userData.animStyle = V.anim;
+  g.userData.extent = FRAME_EXTENT[kind] || V.extent;
   return g;
 }

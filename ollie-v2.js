@@ -9,8 +9,8 @@
 //                then buildOllieV2(opts) wherever buildOllie(opts) is called.
 // For tees/pants to fit the new silhouette, OLLIE_PROFILE in game.js must be replaced by OLLIE_PROFILE_V2
 // (bodyR()/profileSlice() read it). See MERGE_NOTE.md.
-import * as THREE from './vendor/three.module.min.js?v=20261116-10';
-import { buildSpeciesV2 } from './species-v2.js?v=20261116-10';
+import * as THREE from './vendor/three.module.min.js?v=20261116-11';
+import { buildSpeciesV2, FRAME_EXTENT } from './species-v2.js?v=20261116-11';
 
 export const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -133,12 +133,13 @@ export function merge(list){
 
 // ---------- soft matte clay material (one program per variant: plain / muzzle), warm rim, cached ----------
 const CREAM = 0xf6e0b5;
-export function clay(hex, ghost, { muzzle = null, belly = false, rough = .8, sheen = .42, cc = .05, paint = null, neck = null } = {}){
+export function clay(hex, ghost, { muzzle = null, belly = false, rough = .8, sheen = .42, cc = .05, paint = null, neck = null, sheenCol = null } = {}){
   const mk = muzzle ? muzzle.key : '', pk = paint ? `P${paint.key}` : '', nk = neck ? `N${neck.a}_${neck.b}` : '';
-  const key = `${hex}|${ghost ? 1 : 0}|${mk}|${belly ? 1 : 0}|${rough}|${cc}|${pk}|${paint ? paint.off.join(',') + '|' + paint.part : ''}|${nk}`; let m = V2.mats.get(key); if(m) return m;
+  const key = `${hex}|${ghost ? 1 : 0}|${mk}|${belly ? 1 : 0}|${rough}|${sheen}|${cc}|${sheenCol||''}|${pk}|${paint ? paint.off.join(',') + '|' + paint.part : ''}|${nk}`; let m = V2.mats.get(key); if(m) return m;
   const c = new THREE.Color(hex);
+  const sc = sheenCol != null ? new THREE.Color(sheenCol) : c.clone().lerp(new THREE.Color(0xfff1dc), .5);
   m = new THREE.MeshPhysicalMaterial({ color: c, roughness: rough, metalness: 0, sheen, sheenRoughness: .75,
-    sheenColor: c.clone().lerp(new THREE.Color(0xfff1dc), .5), clearcoat: cc, clearcoatRoughness: cc > .1 ? .25 : .6 });
+    sheenColor: sc, clearcoat: cc, clearcoatRoughness: cc > .1 ? .25 : .6 });
   if(ghost){ m.transparent = true; m.opacity = .4; m.depthWrite = false; }
   m.customProgramCacheKey = () => 'zkClayV2' + mk + (belly ? 'B' : '') + pk + nk;
   const M = muzzle || VARIANTS.A.muz, oy = (muzzle && muzzle.oy) || 0;
@@ -243,5 +244,6 @@ export function buildOllieV2(opts = {}){
   if(!ghost) D.addEquipment(rig, parts, equipped);
   g.traverse(o => { if(o.isMesh) o.castShadow = !ghost; });
   g.userData.parts = parts; g.userData.walk = 0; g.userData.kind = kind; g.userData.v2 = vk; g.userData.animStyle = V.anim;
+  if(FRAME_EXTENT[kind]) g.userData.extent = FRAME_EXTENT[kind];
   return g;
 }

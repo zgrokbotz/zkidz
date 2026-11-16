@@ -20,7 +20,7 @@
 // Phone-cheap: low segment counts, cached shared geos/mats, no skinned meshes, no per-frame allocs,
 // no post-processing / bloom (glow is emissive + additive sprites). Matte clay look, metallic only
 // where the item asks for it. Attach to animated parts (hatAnchor, eyeAnchor, sh±1, arm±1, foot±1, rig).
-import * as THREE from './vendor/three.module.min.js?v=20261116-10';
+import * as THREE from './vendor/three.module.min.js?v=20261116-11';
 
 /* ---------------- install (bodyR so tees/pants follow the active silhouette) ---------------- */
 let _bodyR = null, _getProfile = null;

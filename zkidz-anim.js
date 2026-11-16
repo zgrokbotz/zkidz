@@ -31,6 +31,14 @@ export const SPECIES = {
   bubbles: { tail:'y', tailAmp:.30, tailSpd:2.6, flap:0,   gill:.22 }, // gill wiggle
   oscar:   { tail:'x', tailAmp:.40, tailSpd:2.2, flap:.15, gill:0 },   // big fluke
   wade:    { tail:'y', tailAmp:.38, tailSpd:1.1, flap:.10, gill:0 },   // slow tail sweep
+  pip:     { tail:'y', tailAmp:.08, tailSpd:1.6, flap:.08, gill:0 },   // penguin waddle
+  sunny:   { tail:'y', tailAmp:.12, tailSpd:1.8, flap:.08, gill:0 },
+  jelly:   { tail:'y', tailAmp:.22, tailSpd:2.4, flap:.12, gill:.28 }, // tentacle wiggle
+  lulu:    { tail:'y', tailAmp:.18, tailSpd:3.0, flap:.10, gill:.14 }, // antennae
+  percy:   { tail:'y', tailAmp:.26, tailSpd:6.0, flap:.10, gill:0 },   // fish-tail swish
+  nova:    { tail:'y', tailAmp:.22, tailSpd:2.4, flap:.16, gill:0 },   // fluke
+  kelpie:  { tail:'y', tailAmp:.16, tailSpd:2.0, flap:.06, gill:.24 }, // head fronds
+  giga:    { tail:'y', tailAmp:.20, tailSpd:2.2, flap:.10, gill:.26 }, // tentacles
 };
 // per-character feel (o.userData.animStyle, set by buildOllieV2 variants). Multipliers on the blended pose + extras.
 export const STYLES = {
@@ -112,7 +120,9 @@ function init(o){
   A.eyes=[]; A.eyeY=[]; for(const c of p.head.children){ if(c.name==='eye'){ A.eyes.push(c); A.eyeY.push(c.scale.y); } }
   A.blinkT=2+Math.random()*2; A.blink=0;
   A.gills=[]; A.gillBase=[];
-  for(const c of p.head.children){ if(!c.isMesh && c!==p.hatAnchor && c!==p.eyeAnchor && c.children.length>=2){ A.gills.push(c); A.gillBase.push(c.rotation.z); } }
+  const mark = c => { if(A.gills.indexOf(c) >= 0) return; A.gills.push(c); A.gillBase.push(c.rotation.z); A.gillBaseX = A.gillBaseX || []; A.gillBaseX.push(c.rotation.x); };
+  o.traverse(c => { if(c.name === 'gill' || c.name === 'tent' || c.name === 'frond') mark(c); });
+  if(!A.gills.length){ for(const c of p.head.children){ if(!c.isMesh && c!==p.hatAnchor && c!==p.eyeAnchor && c.children.length>=2) mark(c); } }
   if(!kind) kind = A.gills.length ? 'bubbles' : 'ollie';
   A.sp=SPECIES[kind]||SPECIES.ollie; A.kind=kind; A.st=STYLES[o.userData.animStyle]||STYLES.calm;
   o.userData.zkAnim=A; return A;
@@ -180,7 +190,9 @@ export function animateChar(o, state='idle', speed=0, dt=1/60, t=0){
   fL.position.y=B.fLy+P[FLY]; fL.position.z=B.fLz+P[FLZ]; fL.rotation.x=B.fLr+P[FLR];
   fR.position.y=B.fRy+P[FRY]; fR.position.z=B.fRz+P[FRZ]; fR.rotation.x=B.fRr+P[FRR];
   if(p.tail){ p.tail.rotation.set(B.tx+P[TX], B.ty+P[TY], B.tz+P[TZ]); }
-  for(let i=0;i<A.gills.length;i++){ const g=A.gills[i]; g.rotation.z=A.gillBase[i]+Math.sign(g.position.x)*P[GILL]*(1+(i%3)*.25); }
+  for(let i=0;i<A.gills.length;i++){ const g=A.gills[i], side=Math.sign(g.position.x)||1;
+    g.rotation.z=A.gillBase[i]+side*P[GILL]*(1+(i%3)*.25);
+    if(A.gillBaseX) g.rotation.x=A.gillBaseX[i]+P[GILL]*.35*(i%2?1:-1); }
   // blink every ~3-5 s (V2 eyes only; no allocation)
   if(A.eyes.length){ A.blinkT-=dt; if(A.blinkT<=0){ A.blink=.16; A.blinkT=2.6+Math.random()*2.6; } if(A.blink>0) A.blink-=dt;
     const c=A.blink>0? 1-Math.sin(Math.PI*A.blink/.16)*.9 : 1; for(let i=0;i<A.eyes.length;i++) A.eyes[i].scale.y=A.eyeY[i]*c; }
