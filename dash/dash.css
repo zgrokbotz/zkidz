@@ -68,3 +68,36 @@
   #reefDash .rd-stat{font-size:13px;padding:4px 8px;min-height:32px}
   #reefDash .rd-stage canvas{border-width:3px;border-radius:12px;box-shadow:0 5px 0 var(--ink)}
 }
+
+#reefDash .rd-tipbal{margin:4px 0 8px;color:#9fe8ff;font-size:clamp(16px,3.4vw,20px)}
+#reefDash .rd-tipbal b{color:#ffe25a}
+#reefDash .rd-tipline{color:#c6f0a8}
+#reefDash .rd-bigstars{font-size:clamp(32px,8vw,52px);letter-spacing:6px;color:#ffe25a;text-shadow:0 3px 0 #16163a;margin:4px 0 8px}
+#reefDash .rd-mapgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0 8px}
+#reefDash .rd-mapgrid .rd-lvl{min-width:0;width:100%;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#reefDash .rd-lstars{display:block;color:#c27a00;font-size:16px;letter-spacing:1px}
+#reefDash .rd-upgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0;text-align:left}
+#reefDash .rd-up{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:110px;padding:10px 12px;border-radius:16px;border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);background:linear-gradient(#fff1cf,#ecd29a);color:#16163a;text-align:left}
+#reefDash .rd-up:active{transform:translateY(2px);box-shadow:0 2px 0 var(--ink)}
+#reefDash .rd-up.no{opacity:.75}
+#reefDash .rd-up.max{background:linear-gradient(#c6f0a8,#7bc96a)}
+#reefDash .rd-upic{font-size:22px}
+#reefDash .rd-upn{font-size:18px;line-height:1.1}
+#reefDash .rd-up small{font-size:12px;opacity:.8;line-height:1.2}
+#reefDash .rd-uplv{font-size:13px;color:#1a4ea8}
+#reefDash .rd-upcost{margin-top:auto;font-size:16px;color:#c27a00}
+#reefDash .rd-shopcard{width:min(640px,96vw)}
+#reefDash .rd-stat.rd-tips{background:rgba(15,60,70,.8)}
+@media (max-width:600px){
+  #reefDash .rd-mapgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #reefDash .rd-upgrid{grid-template-columns:1fr 1fr}
+  #reefDash .rd-up{min-height:100px;padding:8px 10px}
+  #reefDash .rd-upn{font-size:16px}
+}
+@media (orientation:landscape) and (max-height:500px){
+  #reefDash .rd-mapgrid{grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+  #reefDash .rd-mapgrid .rd-lvl{min-height:52px}
+  #reefDash .rd-upgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #reefDash .rd-up{min-height:88px}
+  #reefDash .rd-shopcard,#reefDash .rd-map{max-height:min(94vh,640px)}
+}

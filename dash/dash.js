@@ -23,10 +23,27 @@ const COLORS = [
 /* Kitchen prep (seconds). Old playtest times were 2.4 / 2.8 / 3.2 and felt slow.
    New: 2.0 / 2.5 / 3.2, hard-capped at COOK_CAP (4.0). */
 const LEVELS = [
-  { id:1, name:'Lunch Rush',  time:90, goal:80,  cook:2.0, eat:3.2, read:1.2, queueDrain:2.0, tableDrain:1.8, spawn0:6.5, spawnMin:5.0, speed:300 },
-  { id:2, name:'Dinner Wave', time:90, goal:120, cook:2.5, eat:3.5, read:1.4, queueDrain:2.4, tableDrain:2.3, spawn0:6.0, spawnMin:4.2, speed:330 },
-  { id:3, name:'Star Shift',  time:90, goal:160, cook:3.2, eat:3.8, read:1.5, queueDrain:2.8, tableDrain:2.7, spawn0:5.2, spawnMin:3.8, speed:365 },
+  { id:1, name:'Lunch Rush',      time:90,  goal:80,  cook:2.0, eat:3.2, read:1.2, queueDrain:2.0, tableDrain:1.8, spawn0:6.5, spawnMin:5.0, speed:300 },
+  { id:2, name:'Dinner Wave',     time:90,  goal:120, cook:2.5, eat:3.5, read:1.4, queueDrain:2.4, tableDrain:2.3, spawn0:6.0, spawnMin:4.2, speed:330 },
+  { id:3, name:'Star Shift',      time:90,  goal:160, cook:3.2, eat:3.8, read:1.5, queueDrain:2.8, tableDrain:2.7, spawn0:5.2, spawnMin:3.8, speed:365 },
+  { id:4, name:'Tidepool Party',  time:95,  goal:200, cook:3.4, eat:3.8, read:1.5, queueDrain:2.9, tableDrain:2.8, spawn0:5.0, spawnMin:3.6, speed:375 },
+  { id:5, name:'Coral Banquet',   time:95,  goal:240, cook:3.6, eat:3.9, read:1.5, queueDrain:3.0, tableDrain:2.9, spawn0:4.8, spawnMin:3.5, speed:385 },
+  { id:6, name:'Wreck Feast',     time:100, goal:280, cook:3.8, eat:4.0, read:1.4, queueDrain:3.1, tableDrain:3.0, spawn0:4.6, spawnMin:3.4, speed:400 },
+  { id:7, name:'Pearl Service',   time:100, goal:320, cook:3.9, eat:4.0, read:1.4, queueDrain:3.2, tableDrain:3.1, spawn0:4.4, spawnMin:3.3, speed:410 },
+  { id:8, name:'Poseidon Rush',   time:105, goal:360, cook:4.0, eat:4.0, read:1.3, queueDrain:3.3, tableDrain:3.2, spawn0:4.2, spawnMin:3.2, speed:425 },
 ];
+const UPGRADE_CATALOG = [
+  { id:'shoes',    icon:'👟', name:'Faster Fins',      desc:'Swim from table to kitchen quicker.',           max:3, costs:[40,80,140],  labels:['Normal swim','Speedy fins','Rush fins','Turbo fins'] },
+  { id:'tray',     icon:'🍽️', name:'Bigger Tray',      desc:'Carry more dishes at once.',                   max:2, costs:[50,110],     labels:['2 dishes','3 dishes','4 dishes'] },
+  { id:'kitchen',  icon:'🔥', name:'Quicker Kitchen',  desc:'The shell grill finishes meals faster.',        max:3, costs:[45,95,160],  labels:['Standard grill','Snappy grill','Quick grill','Super grill'] },
+  { id:'table',    icon:'🐚', name:'Extra Table',      desc:'Add another clam table to the floor.',          max:2, costs:[60,130],     labels:['4 tables','5 tables','6 tables'] },
+  { id:'patience', icon:'💝', name:'Patience Boost',   desc:'Guests stay happy a little longer.',            max:3, costs:[40,85,150],  labels:['None','Chill aura','Happy aura','Party aura'] },
+  { id:'decor',    icon:'💐', name:'Reef Decor',       desc:'Prettier diner — and slightly bigger tips.',    max:3, costs:[30,70,120],  labels:['Cozy','Cute','Fancy','Grand'] },
+];
+const SHOE_MUL = [1, 1.18, 1.36, 1.55];
+const COOK_MUL = [1, 0.85, 0.72, 0.60];
+const PATIENCE_MUL = [1, 0.80, 0.65, 0.50];
+const PATIENCE_REGEN = [0, 0.4, 0.9, 1.6];
 const COLOR_MATCH_BONUS = 10; // in-game score only; does not change payout formula
 const COMBO_CAP = 4;
 
@@ -38,12 +55,38 @@ function defaultArt(id){
   try{ return new URL(`../art/${id}.jpg`, import.meta.url).href; }
   catch(e){ return `art/${id}.jpg`; }
 }
+function defaultDashSave(){
+  return { v:1, best:0, bests:{}, stars:{}, unlocked:1, tips:0, upgrades:{ shoes:0, tray:0, kitchen:0, table:0, patience:0, decor:0 } };
+}
 function loadDashSave(){
-  const base = { v:1, best:0, bests:{1:0,2:0,3:0}, unlocked:1 };
-  try{ return Object.assign(base, { bests:{...base.bests} }, JSON.parse(localStorage.getItem(SAVE_KEY)||'{}')); }
-  catch(e){ return base; }
+  const base = defaultDashSave();
+  try{
+    const raw = JSON.parse(localStorage.getItem(SAVE_KEY)||'{}') || {};
+    const P = Object.assign(base, raw);
+    P.bests = Object.assign({}, raw.bests||{});
+    P.stars = Object.assign({}, raw.stars||{});
+    P.upgrades = Object.assign({ shoes:0, tray:0, kitchen:0, table:0, patience:0, decor:0 }, raw.upgrades||{});
+    P.tips = Math.max(0, P.tips|0);
+    P.unlocked = Math.max(1, P.unlocked|0);
+    return P;
+  }catch(e){ return base; }
 }
 function writeDashSave(P){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(P)); }catch(e){} }
+function upg(id){ return (D && D.P && D.P.upgrades && D.P.upgrades[id]) || 0; }
+function tableCount(){ return 4 + Math.min(2, upg('table')); }
+function trayCap(){ return 2 + Math.min(2, upg('tray')); }
+function shoeMul(){ return SHOE_MUL[upg('shoes')] || 1; }
+function patienceMul(){ return PATIENCE_MUL[upg('patience')] || 1; }
+function patienceRegen(){ return PATIENCE_REGEN[upg('patience')] || 0; }
+function decorTipMul(){ return 1 + 0.1*upg('decor'); }
+function levelStars(score, goal){
+  if(score < goal) return 0;
+  if(score >= Math.round(goal*1.5)) return 3;
+  if(score >= Math.round(goal*1.2)) return 2;
+  return 1;
+}
+function starGlyphs(n){ return [0,1,2].map(i=> i<n ? '★' : '☆').join(''); }
+function catalogFor(id){ return UPGRADE_CATALOG.find(u=>u.id===id); }
 function hex(c){
   if(typeof c==='number') return '#'+c.toString(16).padStart(6,'0');
   return c || '#4aa3df';
@@ -149,6 +192,23 @@ function drawAvatar(ctx, x, y, r, img, color, em, opt){
     ctx.lineWidth = 2; ctx.strokeStyle = '#16163a';
     ctx.beginPath(); ctx.arc(0,0,r+5,0,Math.PI*2); ctx.stroke();
   }
+  if(opt.vip){
+    // Gold sparkle ring + crown (VIP is still one of our characters, never a human)
+    const pulse = 0.55 + 0.45*Math.sin((performance.now()/180));
+    ctx.lineWidth = Math.max(5, r*0.2);
+    ctx.strokeStyle = `rgba(255,210,70,${0.55+0.35*pulse})`;
+    ctx.beginPath(); ctx.arc(0,0,r+8,0,Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = '#fff3a0'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0,0,r+11,0,Math.PI*2); ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.translate(x, y + bob);
+    ctx.font = `${Math.round(r*0.95)}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('👑', 0, -r-6);
+    ctx.restore();
+    return;
+  }
   ctx.restore();
 }
 function drawPatience(ctx, x, y, w, p){
@@ -190,15 +250,21 @@ function computeLayout(W, H){
     L.queue = [0,1,2].map(i=>({ x:L.queueX, y: qTop + (qBot-qTop)*(i+0.15)/3 }));
     const midX = W*0.60, midY = (qTop + H-20)*0.52;
     const gapX = Math.max(130, W*0.36), gapY = Math.max(140, H*0.26);
-    L.tableR = Math.max(52, Math.min(78, Math.min(gapX, gapY)*0.34));
+    const nTab = tableCount();
+    L.tableR = Math.max(46, Math.min(nTab>4?68:78, Math.min(gapX, gapY)*0.34));
     L.tables = [
       { x:midX-gapX/2, y:midY-gapY/2 },
       { x:midX+gapX/2, y:midY-gapY/2 },
       { x:midX-gapX/2, y:midY+gapY/2 },
       { x:midX+gapX/2, y:midY+gapY/2 },
     ];
+    if(nTab>=5) L.tables.push({ x:midX, y:midY+gapY*0.08 });
+    if(nTab>=6) L.tables.push({ x:midX, y:midY-gapY*0.08 });
+    if(nTab===5) L.tables[4] = { x:midX, y:midY+gapY/2 };
     L.exit = { x:W*0.22, y:H-30 };
     L.playerStart = { x:midX, y:midY };
+    L.porthole = { x:W*0.86, y:Math.max(22, kitY-8), r:Math.max(22, W*0.055) };
+    L.arch = { x:L.exit.x, y:L.exit.y-8 };
   } else {
     const kitY = Math.max(48, H*0.12);
     L.kitchen = { x:W*0.5, y:kitY, w:Math.min(W*0.72, 560), h:Math.max(64, H*0.16) };
@@ -211,15 +277,20 @@ function computeLayout(W, H){
     L.queue = [0,1,2].map(i=>({ x:L.queueX, y: qTop + (qBot-qTop)*(i+0.15)/3 }));
     const midX = W*0.52, midY = H*0.58;
     const gapX = Math.max(200, W*0.30), gapY = Math.max(140, H*0.36);
-    L.tableR = Math.max(48, Math.min(70, Math.min(gapX, gapY)*0.28));
+    const nTab = tableCount();
+    L.tableR = Math.max(44, Math.min(nTab>4?62:70, Math.min(gapX, gapY)*0.28));
     L.tables = [
       { x:midX-gapX/2, y:midY-gapY/2 },
       { x:midX+gapX/2, y:midY-gapY/2 },
       { x:midX-gapX/2, y:midY+gapY/2 },
       { x:midX+gapX/2, y:midY+gapY/2 },
     ];
+    if(nTab>=5) L.tables.push({ x:midX + gapX*0.92, y:midY });
+    if(nTab>=6) L.tables.splice(4,1,{ x:midX, y:midY-gapY/2 },{ x:midX, y:midY+gapY/2 });
     L.exit = { x:Math.max(60, W*0.08), y:H-28 };
     L.playerStart = { x:midX, y:midY };
+    L.porthole = { x:W*0.90, y:Math.max(28, kitY-6), r:Math.max(20, H*0.08) };
+    L.arch = { x:L.exit.x, y:L.exit.y-8 };
   }
   return L;
 }
@@ -246,6 +317,7 @@ function applyLayoutPositions(){
   if(!L) return;
   if(!W) return;
   W.tables.forEach((t,i)=>{
+    if(!L.tables[i]) return;
     t.x = L.tables[i].x; t.y = L.tables[i].y; t.r = L.tableR;
   });
   W.kitchenSlots.forEach((k,i)=>{
@@ -286,7 +358,7 @@ function makeWorld(){
     player: {
       x:L.playerStart.x, y:L.playerStart.y,
       targetX:L.playerStart.x, targetY:L.playerStart.y,
-      hands:[], speed: (D.cfg && D.cfg.speed) || 300,
+      hands:[], speed: ((D.cfg && D.cfg.speed) || 300) * shoeMul(),
       queue:[], facing:1, walkPhase:0, waiting:false,
     },
     selectedParty: null,
@@ -308,7 +380,7 @@ export function openReefDiner(opts={}){
     nextCust: 0,
     root:null, canvas:null, ctx:null,
     running:false, over:false, paid:false, payout:null, winInfo:null, cheered:false,
-    level: Math.min(P.unlocked||1, 3),
+    level: Math.min(P.unlocked||1, LEVELS.length), shiftTips:0,
     score:0, timeLeft:90, goal:80, cfg:LEVELS[0],
     spawnTimer:1.2, world:null,
     raf:0, lastT:0, CW:800, CH:500, layout:null,
@@ -319,7 +391,7 @@ export function openReefDiner(opts={}){
   if(!document.getElementById('reefDashCss') && !opts.noCss){
     const l=document.createElement('link');
     l.id='reefDashCss'; l.rel='stylesheet';
-    l.href=new URL('./dash.css', import.meta.url).href;
+    l.href=new URL('./dash.css?v=20261116-4', import.meta.url).href;
     document.head.appendChild(l);
   }
 
@@ -334,6 +406,7 @@ export function openReefDiner(opts={}){
         <div class="rd-title"><small>REEF DINER</small><b class="rd-lvlname">${LEVELS[D.level-1].name}</b></div>
         <div class="rd-stats">
           <div class="rd-stat rd-score">⭐ 0 / ${LEVELS[D.level-1].goal}</div>
+          <div class="rd-stat rd-tips">🐚 ${P.tips||0}</div>
           <div class="rd-stat rd-combo">x1</div>
           <div class="rd-stat rd-time">⏱ 1:30</div>
           <div class="rd-stat rd-hands">🙌 —</div>
@@ -357,7 +430,7 @@ export function openReefDiner(opts={}){
   D._onResize = ()=>fitCanvas();
   window.addEventListener('resize', D._onResize);
   if(window.visualViewport) window.visualViewport.addEventListener('resize', D._onResize);
-  D._ro = (typeof ResizeObserver!=='undefined') ? new ResizeObserver(()=>fitCanvas()) : null;
+  D._ro = (typeof ResizeObserver!=='undefined') ? new ResizeObserver(()=>{ requestAnimationFrame(()=>D && fitCanvas()); }) : null;
   if(D._ro) D._ro.observe(root.querySelector('.rd-stage'));
   showStartOverlay();
   requestAnimationFrame(()=>{ fitCanvas(); D.lastT = performance.now(); loop(D.lastT); });
@@ -387,26 +460,29 @@ function exitToLobby(){
 
 function showStartOverlay(){
   if(!D) return;
-  D.running=false; D.over=false; D.paid=false; D.payout=null; D.winInfo=null; D.cheered=false;
+  D.running=false; D.over=false; D.paid=false; D.payout=null; D.winInfo=null; D.cheered=false; D.shiftTips=0;
   const P=D.P;
   const modal=D.root.querySelector('.rd-modal');
   modal.classList.remove('hidden');
   const lvls = LEVELS.map(L=>{
     const lock = L.id > (P.unlocked||1);
     const best = (P.bests && P.bests[L.id]) || 0;
-    return `<button type="button" class="rd-lvl ${L.id===D.level?'sel':''} ${lock?'lock':''}" data-lvl="${L.id}" ${lock?'disabled':''}>Lv ${L.id}<small>${lock?'🔒': (best?('Best ⭐'+best):L.name)}</small></button>`;
+    const st = (P.stars && P.stars[L.id]) || 0;
+    return `<button type="button" class="rd-lvl ${L.id===D.level?'sel':''} ${lock?'lock':''}" data-lvl="${L.id}" ${lock?'disabled':''}><span class="rd-lstars">${lock?'🔒':starGlyphs(st)}</span>Lv ${L.id}<small>${lock?'Locked': (best?('Best ⭐'+best+' · '+L.name):L.name)}</small></button>`;
   }).join('');
-  modal.innerHTML = `<div class="rd-card">
+  modal.innerHTML = `<div class="rd-card rd-map">
     <h2>REEF DINER 🍽️</h2>
+    <p class="rd-tipbal">Tips 🐚 <b>${P.tips||0}</b> · spend them on diner upgrades!</p>
     <p>Serve your friends at the underwater diner!</p>
     <ul class="rd-how">
-      <li>Drag friends from the line onto a table (or tap them, then the table).</li>
-      <li>Match their color ring to the table for a starfish bonus!</li>
+      <li>Drag friends from the line onto a matching clam table.</li>
+      <li>VIP friends wear a gold crown and leave bigger tips.</li>
       <li>Tap several places in a row — numbered waypoints show the route.</li>
       <li>Repeat the same job to build a combo (x2, x3, x4)!</li>
     </ul>
-    <div class="rd-levels">${lvls}</div>
+    <div class="rd-levels rd-mapgrid">${lvls}</div>
     <div class="rd-actions">
+      <button type="button" class="rd-btn gold rd-shop">🛠️ UPGRADES</button>
       <button type="button" class="rd-btn green rd-start">START SHIFT</button>
       <button type="button" class="rd-btn rd-lobby">BACK TO LOBBY</button>
     </div>
@@ -414,10 +490,72 @@ function showStartOverlay(){
   modal.querySelectorAll('.rd-lvl').forEach(b=>b.onclick=()=>{
     const id=+b.dataset.lvl; if(id>(P.unlocked||1)) return;
     D.level=id; modal.querySelectorAll('.rd-lvl').forEach(x=>x.classList.toggle('sel', +x.dataset.lvl===id));
+    const nm=D.root.querySelector('.rd-lvlname');
+    if(nm && LEVELS[id-1]) nm.textContent = LEVELS[id-1].name;
     updateHud();
   });
   modal.querySelector('.rd-start').onclick=()=>{ unlockAudio(); startShift(D.level); };
+  modal.querySelector('.rd-shop').onclick=()=>{ unlockAudio(); showUpgradeShop(); };
   modal.querySelector('.rd-lobby').onclick=()=>{ unlockAudio(); exitToLobby(); };
+}
+
+function buyDashUpgrade(id){
+  if(!D) return { ok:false, reason:'no-diner' };
+  const cat = catalogFor(id);
+  if(!cat) return { ok:false, reason:'unknown' };
+  const P = D.P;
+  const cur = upg(id);
+  if(cur >= cat.max) return { ok:false, reason:'max', level:cur, tips:P.tips };
+  const cost = cat.costs[cur];
+  if((P.tips||0) < cost) return { ok:false, reason:'poor', cost, tips:P.tips };
+  P.tips -= cost;
+  P.upgrades[id] = cur + 1;
+  writeDashSave(P);
+  updateHud();
+  return { ok:true, id, level:P.upgrades[id], tips:P.tips, cost };
+}
+
+function showUpgradeShop(fromEnd){
+  if(!D) return;
+  const P=D.P, modal=D.root.querySelector('.rd-modal');
+  modal.classList.remove('hidden');
+  const cards = UPGRADE_CATALOG.map(u=>{
+    const lv = upg(u.id);
+    const maxed = lv >= u.max;
+    const cost = maxed ? 0 : u.costs[lv];
+    const can = !maxed && (P.tips||0) >= cost;
+    const label = u.labels[lv] || ('Lv '+lv);
+    const next = maxed ? 'MAX' : (u.labels[lv+1]||('Lv '+(lv+1)));
+    return `<button type="button" class="rd-up ${maxed?'max':''} ${can?'':'no'}" data-up="${u.id}">
+      <span class="rd-upic">${u.icon}</span>
+      <span class="rd-upn">${u.name}</span>
+      <small>${u.desc}</small>
+      <span class="rd-uplv">${label}${maxed?'':' → '+next}</span>
+      <b class="rd-upcost">${maxed?'MAX':'🐚 '+cost}</b>
+    </button>`;
+  }).join('');
+  const nextAvail = fromEnd && D.over && D.score>=D.goal && D.level < LEVELS.length && (P.unlocked||1) > D.level;
+  modal.innerHTML = `<div class="rd-card rd-shopcard">
+    <h2>🛠️ UPGRADE SHOP</h2>
+    <p class="rd-tipbal">Your tips 🐚 <b>${P.tips||0}</b> · diner-only, not starfish!</p>
+    <div class="rd-upgrid">${cards}</div>
+    <div class="rd-actions">
+      <button type="button" class="rd-btn rd-tomap">🗺️ LEVEL MAP</button>
+      ${nextAvail?`<button type="button" class="rd-btn gold rd-next">NEXT LEVEL</button>`:''}
+      ${fromEnd?`<button type="button" class="rd-btn green rd-again">PLAY AGAIN</button>`:''}
+    </div>
+  </div>`;
+  modal.querySelectorAll('.rd-up').forEach(b=>b.onclick=()=>{
+    unlockAudio();
+    const res = buyDashUpgrade(b.dataset.up);
+    if(!res.ok && res.reason==='poor') toast('Need more tips! Serve friends to earn 🐚');
+    else if(!res.ok && res.reason==='max') toast('Already maxed!');
+    else if(res.ok) toast(`${catalogFor(res.id).name} upgraded!`);
+    showUpgradeShop(fromEnd);
+  });
+  modal.querySelector('.rd-tomap').onclick=()=>{ unlockAudio(); showStartOverlay(); };
+  const nx=modal.querySelector('.rd-next'); if(nx) nx.onclick=()=>{ unlockAudio(); startShift(D.level+1); };
+  const ag=modal.querySelector('.rd-again'); if(ag) ag.onclick=()=>{ unlockAudio(); startShift(D.level); };
 }
 
 function startShift(level){
@@ -427,6 +565,7 @@ function startShift(level){
   D.level = cfg.id;
   D.cfg = cfg;
   D.score = 0;
+  D.shiftTips = 0;
   D.timeLeft = cfg.time;
   D.goal = cfg.goal;
   D.spawnTimer = 0.6;
@@ -437,7 +576,7 @@ function startShift(level){
   D.winInfo = null;
   D.cheered = false;
   D.world = makeWorld();
-  D.world.player.speed = cfg.speed;
+  D.world.player.speed = cfg.speed * shoeMul();
   D.root.querySelector('.rd-lvlname').textContent = cfg.name;
   D.root.querySelector('.rd-modal').classList.add('hidden');
   D.root.querySelector('.rd-modal').innerHTML = '';
@@ -450,11 +589,14 @@ function endGame(){
   D.running = false;
   D.over = true;
   const won = D.score >= D.goal;
+  const stars = levelStars(D.score, D.goal);
   const P = D.P;
   P.best = Math.max(P.best||0, D.score);
-  P.bests = P.bests || {1:0,2:0,3:0};
+  P.bests = P.bests || {};
+  P.stars = P.stars || {};
   P.bests[D.level] = Math.max(P.bests[D.level]||0, D.score);
-  if(won && D.level >= (P.unlocked||1) && D.level < 3) P.unlocked = D.level + 1;
+  if(stars > (P.stars[D.level]||0)) P.stars[D.level] = stars;
+  if(won && D.level >= (P.unlocked||1) && D.level < LEVELS.length) P.unlocked = D.level + 1;
   writeDashSave(P);
 
   let rewardLine = won ? 'You hit the star goal!' : 'Almost! Try to reach the star goal next time.';
@@ -474,17 +616,22 @@ function endGame(){
       rewardLine = `You earned <b>⭐ ${e.earned}</b> starfish!` + (chest ? ' 🎁 A bonus chest is coming!' : ` 🎁 Chest in ${wins}/${need} wins.`);
     }
   }
+  D.endStars = stars;
 
-  const nextUnlock = won && D.level < 3 && (P.unlocked||1) >= D.level+1;
+  const nextUnlock = won && D.level < LEVELS.length && (P.unlocked||1) >= D.level+1;
   const modal = D.root.querySelector('.rd-modal');
   modal.classList.remove('hidden');
-  modal.innerHTML = `<div class="rd-card">
+  modal.innerHTML = `<div class="rd-card rd-end">
     <h2>${won ? 'STAR GOAL! ⭐' : 'SHIFT OVER'}</h2>
+    <div class="rd-bigstars">${starGlyphs(stars)}</div>
     <p>You served up <b>⭐ ${D.score}</b>! Goal was ⭐ ${D.goal}.</p>
+    <p class="rd-tipline">Tips this shift 🐚 <b>+${D.shiftTips||0}</b> · pocket 🐚 <b>${P.tips||0}</b></p>
     <p class="rd-reward">${rewardLine}</p>
     <div class="rd-actions">
+      <button type="button" class="rd-btn gold rd-shop">🛠️ UPGRADES</button>
       ${nextUnlock ? `<button type="button" class="rd-btn gold rd-next">NEXT LEVEL</button>` : ''}
       <button type="button" class="rd-btn green rd-again">PLAY AGAIN</button>
+      <button type="button" class="rd-btn rd-tomap">🗺️ MAP</button>
       <button type="button" class="rd-btn rd-lobby">BACK TO LOBBY</button>
     </div>
   </div>`;
@@ -492,6 +639,8 @@ function endGame(){
   if(again) again.onclick = ()=>{ unlockAudio(); startShift(D.level); };
   const next = modal.querySelector('.rd-next');
   if(next) next.onclick = ()=>{ unlockAudio(); startShift(D.level+1); };
+  modal.querySelector('.rd-shop').onclick = ()=>{ unlockAudio(); showUpgradeShop(true); };
+  modal.querySelector('.rd-tomap').onclick = ()=>{ unlockAudio(); showStartOverlay(); };
   modal.querySelector('.rd-lobby').onclick = ()=>{ unlockAudio(); exitToLobby(); };
 }
 
@@ -507,6 +656,8 @@ function updateHud(){
     const t = Math.max(0, Math.ceil(D.timeLeft||0));
     tm.textContent = `⏱ ${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;
   }
+  const tp = D.root.querySelector('.rd-tips');
+  if(tp) tp.textContent = `🐚 ${((D.P&&D.P.tips)||0)}`;
   if(hd){
     const hands = (D.world && D.world.player.hands) || [];
     hd.textContent = '🙌 ' + (hands.length ? hands.map(i=>i.em).join(' ') : '—');
@@ -641,9 +792,11 @@ function spawnParty(opts){
   const members = [];
   for(let i=0;i<size;i++) members.push(nextMemberFromPool());
   const slot = W.queueSlots[W.waiting.length] || W.queueSlots[W.queueSlots.length-1];
+  const isVIP = !!(opts && opts.vip) || (opts && opts.vip===false ? false : Math.random() < 0.18);
+  const maxP = isVIP ? 120 : 100;
   const party = {
-    size, color, members,
-    patience:100, maxPatience:100,
+    size, color, members, isVIP,
+    patience:maxP, maxPatience:maxP,
     x: slot.x, y: slot.y,
   };
   W.waiting.push(party);
@@ -714,7 +867,9 @@ function sendPartyExiting(table, happy){
 }
 
 function cookTime(){
-  return Math.min(COOK_CAP, (D.cfg && D.cfg.cook) || 2);
+  const base = (D.cfg && D.cfg.cook) || 2;
+  const mul = COOK_MUL[upg('kitchen')] || 1;
+  return Math.min(COOK_CAP, Math.max(1, base * mul));
 }
 
 function sendOrderToKitchen(item, tableId){
@@ -744,6 +899,27 @@ function flushKitchenQueue(){
     free.timer = dur;
     free.cookFor = dur;
   }
+}
+
+function grantTips(table){
+  if(!D) return 0;
+  const party = table && table.party;
+  const pat = party ? party.patience : 50;
+  const vip = !!(party && party.isVIP);
+  const match = D.world && D.world.lastColorMatch && table && D.world.lastColorMatch.tableId===table.id;
+  let n = 4 + Math.round(pat/20) + (vip?5:0) + (match?2:0) + ((party && party.size)||1);
+  n = Math.max(1, Math.round(n * decorTipMul()));
+  D.shiftTips = (D.shiftTips||0) + n;
+  D.P.tips = (D.P.tips||0) + n;
+  writeDashSave(D.P);
+  if(table){
+    D.world.floaters.push({
+      x:table.x, y:table.y - (table.r||50) - 36,
+      text:'+'+n+' 🐚', life:1.2, kind:'tips', color:'#9fe8ff'
+    });
+  }
+  updateHud();
+  return n;
 }
 
 function addScore(n, x, y, kind, label){
@@ -795,6 +971,7 @@ function processAction(act){
         t.timer = D.cfg.eat;
         const add = 25 + Math.floor((t.party? t.party.patience : 0)/5);
         awardPoints(add, 'serve', t.x, t.y - (t.r||50) - 16);
+        grantTips(t);
         playSound('serve');
       }
       return 'done';
@@ -815,7 +992,7 @@ function processAction(act){
       // Stay here and pick up the instant the dish is ready — no hidden extra wait.
       return 'wait';
     }
-    if(k.item!==null && W.player.hands.length<2){
+    if(k.item!==null && W.player.hands.length<trayCap()){
       W.player.hands.push(k.item);
       k.item = null;
       k.tableId = null;
@@ -893,7 +1070,8 @@ function update(dt){
     p.x += (slot.x - p.x) * Math.min(1, 8*dt);
     p.y += (slot.y - p.y) * Math.min(1, 8*dt);
     if(W.dragging===p) continue;
-    p.patience -= cfg.queueDrain * dt;
+    p.patience -= cfg.queueDrain * patienceMul() * dt;
+    if(patienceRegen()) p.patience = Math.min(p.maxPatience||100, p.patience + patienceRegen()*dt);
     if(p.patience<=0){
       p.members.forEach((m,idx)=>{
         W.walkers.push({
@@ -943,7 +1121,8 @@ function update(dt){
       }
     } else if(t.party && (t.state==='ready_to_order' || t.state==='waiting_food')){
       const drain = t.state==='waiting_food' ? cfg.tableDrain*0.75 : cfg.tableDrain;
-      t.party.patience -= drain * dt;
+      t.party.patience -= drain * patienceMul() * dt;
+      if(patienceRegen()) t.party.patience = Math.min(t.party.maxPatience||100, t.party.patience + patienceRegen()*dt);
       if(t.party.patience<=0){
         cancelOrdersForTable(t.id);
         sendPartyExiting(t, false);
@@ -988,28 +1167,56 @@ function chairPos(t, idx){
   return { x: idx===0 ? t.x + r*0.72 : t.x - r*0.72, y: t.y+2 };
 }
 
+function drawStarStool(ctx, x, y, color){
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle=color; ctx.strokeStyle='#16163a'; ctx.lineWidth=3;
+  ctx.beginPath();
+  for(let i=0;i<5;i++){
+    const a=-Math.PI/2 + i*Math.PI*2/5, b=a+Math.PI/5;
+    ctx.lineTo(Math.cos(a)*16, Math.sin(a)*15);
+    ctx.lineTo(Math.cos(b)*8, Math.sin(b)*7);
+  }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.35)';
+  ctx.beginPath(); ctx.arc(-3,-3,3,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawClamTable(ctx, r, color, hover){
+  const body = hover ? '#fff3b0' : color;
+  ctx.fillStyle='rgba(22,22,58,.22)';
+  ctx.beginPath(); ctx.ellipse(0, r*0.32, r*1.08, r*0.4, 0, 0, Math.PI*2); ctx.fill();
+  // lower shell
+  ctx.fillStyle=body; ctx.strokeStyle='#16163a'; ctx.lineWidth=hover?6:4;
+  ctx.beginPath(); ctx.ellipse(0, 6, r, r*0.52, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  // ridges
+  ctx.strokeStyle='rgba(22,22,58,.35)'; ctx.lineWidth=2;
+  for(const a of [-0.7,-0.35,0,0.35,0.7]){
+    ctx.beginPath(); ctx.ellipse(0, 6, r*Math.abs(Math.cos(a))*0.92, r*0.5, a*0.15, 0, Math.PI*2); ctx.stroke();
+  }
+  // inner pearl lip
+  ctx.fillStyle = hover ? '#fff8d0' : shadeHex(color, 0.28);
+  ctx.beginPath(); ctx.ellipse(0, 0, r*0.72, r*0.32, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#16163a'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.ellipse(0, 0, r*0.72, r*0.32, 0, 0, Math.PI*2); ctx.stroke();
+}
+function shadeHex(h, k){
+  try{
+    const n=parseInt(String(h).replace('#',''),16);
+    let r=n>>16,g=n>>8&255,b=n&255; const f=k<0?0:255, p=Math.abs(k);
+    r=Math.round(r+(f-r)*p); g=Math.round(g+(f-g)*p); b=Math.round(b+(f-b)*p);
+    return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+  }catch(e){ return h; }
+}
+
 function drawTable(ctx, t, now){
   const W = D.world;
   const hover = W.dragging && t.state==='empty' && Math.hypot(W.dragPos.x-t.x, W.dragPos.y-t.y) < (t.r||56)+16;
   const r = t.r||52;
   ctx.save();
   ctx.translate(t.x, t.y);
-  ctx.fillStyle='rgba(22,22,58,.22)';
-  ctx.beginPath(); ctx.ellipse(0, r*0.28, r*1.05, r*0.38, 0, 0, Math.PI*2); ctx.fill();
-  // color chairs
-  for(const [sx,sy] of [[-r*0.72, 6],[r*0.72, 6]]){
-    ctx.fillStyle = t.seatColor.hex;
-    ctx.strokeStyle='#16163a'; ctx.lineWidth=3.5;
-    ctx.beginPath(); ctx.roundRect(sx-16, sy-14, 32, 28, 8); ctx.fill(); ctx.stroke();
-  }
-  ctx.fillStyle = hover ? '#fff3b0' : '#d9854a';
-  ctx.strokeStyle = hover ? '#ffb703' : t.seatColor.hex;
-  ctx.lineWidth = hover ? 7 : 5;
-  ctx.beginPath(); ctx.ellipse(0, 0, r, r*0.48, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle='#16163a'; ctx.lineWidth=3;
-  ctx.stroke();
-  ctx.fillStyle='#f0b07a';
-  ctx.beginPath(); ctx.ellipse(0, -4, r*0.72, r*0.28, 0, 0, Math.PI*2); ctx.fill();
+  drawStarStool(ctx, -r*0.78, 10, t.seatColor.hex);
+  drawStarStool(ctx,  r*0.78, 10, t.seatColor.hex);
+  drawClamTable(ctx, r, t.seatColor.hex, hover);
   ctx.restore();
 
   if(t.state==='empty'){
@@ -1021,7 +1228,7 @@ function drawTable(ctx, t, now){
   if(t.party && t.state!=='walkingToTable' && t.state!=='dirty'){
     t.party.members.forEach((m, i)=>{
       const c = chairPos(t, i);
-      drawAvatar(ctx, c.x, c.y-6, Math.max(20, r*0.38), m.img, m.color, m.em, { ring:t.party.color.hex, facing: i===0?-1:1 });
+      drawAvatar(ctx, c.x, c.y-6, Math.max(20, r*0.38), m.img, m.color, m.em, { ring:t.party.color.hex, facing: i===0?-1:1, vip:t.party.isVIP && i===0 });
     });
     const pr = t.party.patience / (t.party.maxPatience||100);
     drawPatience(ctx, t.x, t.y - r*0.85, Math.max(48, r*0.9), pr);
@@ -1055,9 +1262,38 @@ function draw(){
   if(!D || !D.ctx) return;
   const ctx=D.ctx, W=D.world, CW=D.CW||800, CH=D.CH||500, L=D.layout;
   ctx.clearRect(0,0,CW,CH);
+  const waterH = CH*0.30;
   const sky = ctx.createLinearGradient(0,0,0,CH);
-  sky.addColorStop(0,'#4db7e8'); sky.addColorStop(.22,'#7ed0ef'); sky.addColorStop(.28,'#f3e2b0'); sky.addColorStop(1,'#e8c878');
+  sky.addColorStop(0,'#3aa0d8'); sky.addColorStop(waterH/CH,'#7ed6f0'); sky.addColorStop(waterH/CH+0.01,'#f3e0a8'); sky.addColorStop(1,'#e2c07a');
   ctx.fillStyle=sky; ctx.fillRect(0,0,CW,CH);
+  // sand tile pattern
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, waterH, CW, CH-waterH); ctx.clip();
+  ctx.strokeStyle='rgba(180,130,50,.22)'; ctx.lineWidth=2;
+  const tile=36;
+  for(let y=waterH-tile; y<CH+tile; y+=tile){
+    for(let x=-tile; x<CW+tile; x+=tile){
+      ctx.beginPath();
+      ctx.moveTo(x, y+tile/2); ctx.lineTo(x+tile/2, y); ctx.lineTo(x+tile, y+tile/2); ctx.lineTo(x+tile/2, y+tile);
+      ctx.closePath(); ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // porthole window
+  if(L && L.porthole){
+    const p=L.porthole;
+    ctx.save();
+    ctx.fillStyle='#1b3d6e'; ctx.strokeStyle='#d7b056'; ctx.lineWidth=8;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle='#16163a'; ctx.lineWidth=3; ctx.stroke();
+    const sea=ctx.createLinearGradient(p.x,p.y-p.r,p.x,p.y+p.r);
+    sea.addColorStop(0,'#6ad0ff'); sea.addColorStop(1,'#1a6aaa');
+    ctx.fillStyle=sea; ctx.beginPath(); ctx.arc(p.x,p.y,p.r-7,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.35)';
+    ctx.beginPath(); ctx.ellipse(p.x-p.r*0.3, p.y-p.r*0.3, p.r*0.25, p.r*0.14, -0.5, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
 
   if(W){
     for(const b of W.bubbles){
@@ -1067,25 +1303,70 @@ function draw(){
     }
   }
 
-  const corals=[[24,CH-18,'#ff6b6b'],[70,CH-8,'#ffa94d'],[120,CH-16,'#ff7eb6'],[CW-50,CH-12,'#51cf66'],[CW-20,CH-8,'#845ef7'],[CW-100,CH-18,'#ff922b']];
-  for(const [x,y,c] of corals){
-    ctx.fillStyle=c; ctx.strokeStyle='#16163a'; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.moveTo(x-16,y); ctx.quadraticCurveTo(x-10,y-34,x,y-44); ctx.quadraticCurveTo(x+10,y-34,x+16,y); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // kelp / coral planters along the sand
+  const planters=[[28,CH-10,'#ff6b6b'],[78,CH-6,'#ffa94d'],[130,CH-14,'#2db86a'],[CW-56,CH-10,'#51cf66'],[CW-22,CH-6,'#845ef7'],[CW-108,CH-16,'#ff7eb6']];
+  const extra = upg('decor');
+  if(extra>=1) planters.push([CW*0.36,CH-8,'#ff922b'],[CW*0.64,CH-8,'#5cc0ff']);
+  if(extra>=2) planters.push([CW*0.22,CH-12,'#e85aa0'],[CW*0.78,CH-12,'#ffe25a']);
+  for(const [x,y,c] of planters){
+    ctx.fillStyle='#c9a36a'; ctx.strokeStyle='#16163a'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.roundRect(x-16,y-8,32,16,6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=c;
+    ctx.beginPath(); ctx.moveTo(x-12,y-8); ctx.quadraticCurveTo(x-8,y-36,x,y-46); ctx.quadraticCurveTo(x+8,y-36,x+12,y-8); ctx.closePath(); ctx.fill(); ctx.stroke();
   }
 
-  // kitchen counter
+  // bubble lamps
+  const lamps = extra>=1 ? [CW*0.18, CW*0.82] : [];
+  if(extra>=3) lamps.push(CW*0.5);
+  for(const lx of lamps){
+    ctx.strokeStyle='#16163a'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(lx, waterH+8); ctx.lineTo(lx, waterH+52); ctx.stroke();
+    ctx.fillStyle='rgba(180,230,255,.55)'; ctx.beginPath(); ctx.arc(lx, waterH+8, 14, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(lx-4, waterH+4, 4, 0, Math.PI*2); ctx.fill();
+  }
+
+  // kitchen: treasure-chest counter + Reef Diner sign + menu board + shell garland
   if(L){
     const kw = L.kitchen.w, kx = L.kitchen.x-kw/2, ky = L.kitchen.y - L.kitchen.h*0.45, kh = L.kitchen.h;
-    ctx.fillStyle='#c26a3a'; ctx.strokeStyle='#16163a'; ctx.lineWidth=5;
-    ctx.beginPath(); ctx.roundRect(kx, ky, kw, kh, 16); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='#e8a05a';
-    ctx.beginPath(); ctx.roundRect(kx+8, ky+8, Math.min(160, kw*0.3), 22, 8); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.strokeStyle='#16163a'; ctx.lineWidth=4;
-    ctx.font='18px "Lilita One",sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-    ctx.strokeText('KITCHEN', kx+16, ky+18); ctx.fillText('KITCHEN', kx+16, ky+18);
+    ctx.fillStyle='#8a4a1c'; ctx.strokeStyle='#16163a'; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.roundRect(kx, ky, kw, kh, 14); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#c27a2e';
+    ctx.beginPath(); ctx.roundRect(kx+6, ky+6, kw-12, kh*0.38, 10); ctx.fill();
+    // chest bands
+    ctx.fillStyle='#e6c15a';
+    ctx.fillRect(kx+kw*0.18, ky, 10, kh);
+    ctx.fillRect(kx+kw*0.82-10, ky, 10, kh);
+    ctx.strokeStyle='#16163a'; ctx.lineWidth=3;
+    ctx.strokeRect(kx+kw*0.18, ky, 10, kh);
+    ctx.strokeRect(kx+kw*0.82-10, ky, 10, kh);
+    // lock plate
+    ctx.fillStyle='#e6c15a'; ctx.beginPath(); ctx.roundRect(L.kitchen.x-18, ky+kh*0.42, 36, 22, 6); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(L.kitchen.x, ky+kh*0.42+11, 5, 0, Math.PI*2); ctx.fillStyle='#16163a'; ctx.fill();
+    // Reef Diner sign sits on the chest lid so it never clips under the HUD
+    const signW=Math.min(172, kw*0.5), signH=24;
+    const signY=ky+6;
+    ctx.fillStyle='#ffe25a'; ctx.strokeStyle='#16163a'; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.roundRect(L.kitchen.x-signW/2, signY, signW, signH, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#16163a'; ctx.font='16px "Lilita One",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('REEF DINER', L.kitchen.x, signY+signH/2);
+    // menu board
+    const mx = kx + 12, my = ky + kh*0.55;
+    ctx.fillStyle='#2a1a10'; ctx.strokeStyle='#16163a'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.roundRect(mx, my, 78, Math.max(28, kh*0.38), 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#ffe25a'; ctx.font='11px "Lilita One",sans-serif'; ctx.textAlign='left';
+    ctx.fillText('MENU', mx+8, my+12);
+    ctx.font='12px serif';
+    ctx.fillText('🍔 🍕 🧋', mx+8, my+26);
+    // shell garland
+    for(let i=0;i<8;i++){
+      const gx = kx + 20 + i*((kw-40)/7), gy = ky + 8 + (i%2)*6;
+      ctx.fillStyle = ['#f4dca6','#ffb4d9','#a8e0ff','#c6f0a8'][i%4];
+      ctx.strokeStyle='#16163a'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.ellipse(gx, gy, 8, 6, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
   }
 
-  // LINE sign + EXIT
+  // LINE sign + EXIT arch
   ctx.fillStyle='#2b6fd6'; ctx.strokeStyle='#16163a'; ctx.lineWidth=4;
   const qx = L ? L.queueX : 70;
   ctx.beginPath(); ctx.roundRect(qx-50, (L && L.kitchen ? L.kitchen.y + 28 : 90), 100, 28, 10); ctx.fill(); ctx.stroke();
@@ -1093,10 +1374,15 @@ function draw(){
   ctx.fillText('LINE', qx, (L && L.kitchen ? L.kitchen.y + 42 : 104));
 
   if(W && W.exit){
+    const ax=W.exit.x, ay=W.exit.y;
+    ctx.strokeStyle='#16163a'; ctx.lineWidth=8; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(ax-42, ay+10); ctx.quadraticCurveTo(ax, ay-36, ax+42, ay+10); ctx.stroke();
+    ctx.strokeStyle='#e07a5f'; ctx.lineWidth=5;
+    ctx.beginPath(); ctx.moveTo(ax-42, ay+10); ctx.quadraticCurveTo(ax, ay-36, ax+42, ay+10); ctx.stroke();
     ctx.fillStyle='#e07a5f'; ctx.strokeStyle='#16163a'; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.roundRect(W.exit.x-48, W.exit.y-16, 96, 30, 10); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(ax-34, ay-8, 68, 24, 10); ctx.fill(); ctx.stroke();
     ctx.fillStyle='#fff'; ctx.font='13px "Lilita One",sans-serif';
-    ctx.fillText('EXIT', W.exit.x, W.exit.y);
+    ctx.fillText('EXIT', ax, ay+4);
   }
 
   if(!W){
@@ -1169,7 +1455,7 @@ function draw(){
   for(const p of W.waiting){
     if(W.dragging===p) continue;
     p.members.forEach((m,i)=>{
-      drawAvatar(ctx, p.x+i*28, p.y, 28, m.img, m.color, m.em, { ring:p.color.hex, facing:1 });
+      drawAvatar(ctx, p.x+i*28, p.y, 28, m.img, m.color, m.em, { ring:p.color.hex, facing:1, vip:p.isVIP && i===0 });
     });
     drawPatience(ctx, p.x+(p.size>1?14:0), p.y+38, 56, p.patience/(p.maxPatience||100));
     if(W.selectedParty===p){
@@ -1220,7 +1506,7 @@ function draw(){
   // dragged party under finger
   if(W.dragging){
     W.dragging.members.forEach((m,i)=>{
-      drawAvatar(ctx, W.dragPos.x+i*28, W.dragPos.y, 30, m.img, m.color, m.em, { ring:W.dragging.color.hex, bob:Math.sin(now/80)*3, facing:1 });
+      drawAvatar(ctx, W.dragPos.x+i*28, W.dragPos.y, 30, m.img, m.color, m.em, { ring:W.dragging.color.hex, bob:Math.sin(now/80)*3, facing:1, vip:W.dragging.isVIP && i===0 });
     });
     // highlight hovered table
     const ht = tableAt(W.dragPos.x, W.dragPos.y, 18);
@@ -1245,7 +1531,7 @@ function snapshot(){
   return {
     running:!!D.running, over:!!D.over, paid:!!D.paid,
     level:D.level, score:D.score, timeLeft:D.timeLeft, goal:D.goal,
-    payout:D.payout, winInfo:D.winInfo,
+    payout:D.payout, winInfo:D.winInfo, tips:D.P&&D.P.tips, shiftTips:D.shiftTips, upgrades:D.P&&D.P.upgrades, endStars:D.endStars,
     combo: W? W.combo:1, lastAction: W && W.lastAction,
     cookTime: cookTime(), cookCap:COOK_CAP,
     colorMatch: W && W.lastColorMatch,
@@ -1386,6 +1672,18 @@ function exposeApi(){
     },
     arrive: arriveWalkers,
     flush: flushWaiter,
-    cookTimes(){ return { old:[2.4,2.8,3.2], now:LEVELS.map(L=>L.cook), cap:COOK_CAP }; },
+    cookTimes(){ return { old:[2.4,2.8,3.2], now:LEVELS.map(L=>L.cook), cap:COOK_CAP, upgraded:cookTime() }; },
+    buyUpgrade(id){ return buyDashUpgrade(id); },
+    showShop(fromEnd){ showUpgradeShop(!!fromEnd); },
+    showMap(){ showStartOverlay(); },
+    addTips(n){ if(!D) return 0; D.P.tips=(D.P.tips||0)+(n|0); if((D.P.tips)<0) D.P.tips=0; writeDashSave(D.P); updateHud(); return D.P.tips; },
+    get tips(){ return D && D.P ? D.P.tips : 0; },
+    get upgrades(){ return D && D.P ? Object.assign({}, D.P.upgrades) : null; },
+    get stars(){ return D && D.P ? Object.assign({}, D.P.stars) : null; },
+    get payout(){ return D && D.payout; },
+    get endStars(){ return D && D.endStars; },
+    get shiftTips(){ return D && D.shiftTips; },
+    catalog: UPGRADE_CATALOG,
+    levelStars,
   };
 }
