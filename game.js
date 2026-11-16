@@ -1,14 +1,14 @@
 // ZKIDZ – Ocean Maze prototype. Three.js, no build step.
-import * as THREE from './vendor/three.module.min.js';
-import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js';
-import * as ECO from './economy.js';
-import { openReefSort } from './sort/reef-sort.js';
-import { openReefDiner } from './dash/dash.js?v=20261116-7';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-7';
-import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-7';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-7';
-import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js';
+import * as THREE from './vendor/three.module.min.js?v=20261116-8';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-8';
+import * as ECO from './economy.js?v=20261116-8';
+import { openReefSort } from './sort/reef-sort.js?v=20261116-8';
+import { openReefDiner } from './dash/dash.js?v=20261116-8';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-8';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-8';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-8';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-8';
+import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-8';
 
 /* ===================== DATA ===================== */
 const RARITIES = [
@@ -96,7 +96,7 @@ const CHARS = [
 const ART_IDS = ['ollie','pip','sunny','bubbles','nova','dash','shelly','pinchy','coco','squirt','lulu','percy','sharkie','oscar','wade','polly','hammy','zippy','bella','tusk','mo','gus','angie','nudi','echo','jelly','stella','finn','puff','hank','inky','milo','wally'];
 CHARS.forEach(c=>c.art = ART_IDS.includes(c.id));
 const CMAP = Object.fromEntries(CHARS.map(c=>[c.id,c]));
-function artUrl(id){ return (window.__ART && window.__ART[id]) || `art/${id}.jpg`; }
+function artUrl(id){ return (window.__ART && window.__ART[id]) || `art/${id}.jpg?v=${ASSET_V}`; }
 function iconHtml(it, cls='ic'){ if(it.slot && it.m){ const u=itemThumb(it); if(u) return `<div class="${cls} thumbic"><img src="${u}" alt="${it.name}" draggable="false"></div>`; }
   return it.art ? `<div class="${cls} artic"><img src="${artUrl(it.id)}" alt="${it.name}" draggable="false"></div>` : `<div class="${cls}" ${it.hue?`style="filter:hue-rotate(${it.id==='bubbles'?'300deg':'180deg'}) saturate(1.5)"`:''}>${it.em}</div>`; }
 CHARS.forEach(c=>c.price = c.id==='ollie'?0:PRICE[c.r]*2);
@@ -159,7 +159,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-7';
+const ASSET_V = '20261116-8';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';

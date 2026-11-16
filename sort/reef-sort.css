@@ -41,6 +41,7 @@
 .rs-barwrap.full .rs-bslot{background:#ffd0c0}
 /* board */
 .rs-board{flex:1;width:100%;max-width:1100px;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;margin-top:8px;padding:6px 2px 10px;scrollbar-width:thin}
+.rs-board.wide{max-width:none;padding-top:10px}
 .rs-grid{display:grid;justify-content:center;gap:calc(var(--s)*.22) calc(var(--s)*.2)}
 .rs-tray{position:relative;padding:calc(var(--s)*.36) calc(var(--s)*.12) calc(var(--s)*.14);border:3px solid var(--ink);border-radius:calc(var(--s)*.26);background:linear-gradient(#f6cf8a,#dc9a48 70%,#c47f33);box-shadow:0 4px 0 var(--ink),inset 0 3px 0 rgba(255,255,255,.5)}
 .rs-tray.layered .rs-row .rs-slot{background:rgba(120,70,25,.62)}

@@ -1,7 +1,7 @@
 // ZKIDZ graphics kit: coral reef builders, shader patches (rim light, sway, caustics), god rays, sand.
-import * as THREE from './vendor/three.module.min.js';
-import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js';
-import { RoundedBoxGeometry } from './vendor/addons/geometries/RoundedBoxGeometry.js';
+import * as THREE from './vendor/three.module.min.js?v=20261116-8';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-8';
+import { RoundedBoxGeometry } from './vendor/addons/geometries/RoundedBoxGeometry.js?v=20261116-8';
 
 export const uTime = { value: 0 };
 // camera-occlusion fade: geometry between the camera and the player gets dithered out (screen-door transparency)

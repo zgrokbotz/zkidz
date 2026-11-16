@@ -2,7 +2,7 @@
  * Usage (inside the main game):  import { openReefSort } from './sort/reef-sort.js';
  *   openReefSort({ ECO, S, save, onExit: () => {...} });
  * Standalone harness: sort/index.html (uses makeLocalHost). See INTEGRATION.md. */
-import { SORT_CHARS, BAR_SIZE, LEVEL_COUNT, levelParams, buildLevel, solve, reshuffle } from './levels.js';
+import { SORT_CHARS, BAR_SIZE, LEVEL_COUNT, levelParams, buildLevel, solve, reshuffle } from './levels.js?v=20261116-8';
 
 /* ============================================================================================
  * REWARDS — Zokenomics' economy v2, approved by Zander.
@@ -63,11 +63,11 @@ let R = null; // the one running instance
 const $ = (sel, el) => (el||R.root).querySelector(sel);
 const $$ = (sel, el) => [...(el||R.root).querySelectorAll(sel)];
 const CHEERS = ['YAY!','WOO-HOO!','SPLASH!','HOORAY!','YIPPEE!','WHEEE!','TA-DA!'];
-const defaultArt = (id) => (typeof window!=='undefined' && window.__ART && window.__ART[id]) || new URL(`../art/${id}.jpg`, import.meta.url).href;
+const defaultArt = (id) => (typeof window!=='undefined' && window.__ART && window.__ART[id]) || new URL(`../art/${id}.jpg?v=20261116-8`, import.meta.url).href;
 
 export function openReefSort(opts={}){
   if(R) closeReefSort();
-  if(!document.getElementById('reefSortCss') && !opts.noCss){ const l=document.createElement('link'); l.id='reefSortCss'; l.rel='stylesheet'; l.href=new URL('./reef-sort.css', import.meta.url).href; document.head.appendChild(l); }
+  if(!document.getElementById('reefSortCss') && !opts.noCss){ const l=document.createElement('link'); l.id='reefSortCss'; l.rel='stylesheet'; l.href=new URL('./reef-sort.css?v=20261116-8', import.meta.url).href; l.onload=()=>{ if(R && R.st){ layoutBoard(); render(false); } }; document.head.appendChild(l); } // re-measure once the stylesheet is in
   const P=loadSortSave(); SND.muted=!!P.muted;
   R = { opts, P, art: opts.artUrl || defaultArt, root:null, st:null, busy:false, sel:null, hist:[], drag:null, timers:new Set(), hintShown:false, idleT:0 };
   const root=document.createElement('div'); root.id='reefSort'; R.root=root;
@@ -113,7 +113,7 @@ function startLevel(n){
   R.P.cur=n; storeSortSave(R.P);
   for(const c of R.chars){ const im=new Image(); im.src=R.art(SORT_CHARS[c].id); }
   $('.rs-lvlnum').textContent = lv.params.bonus ? `BONUS ${n-LEVEL_COUNT}` : `LEVEL ${n}`;
-  layoutBoard(); render(); refreshCoins();
+  layoutBoard(); render(false); layoutBoard(); refreshCoins(); // 2nd pass measures the board once the orders + bar are filled in
   if(n===1) later(()=>{ toast('Make 3 of the same friend on a tray! 🐚'); showHint(true); }, 900);
   bumpIdle();
 }
@@ -124,14 +124,22 @@ function pickOrder(){ const m=charsLeft(); const vis=visibleChars(); const cand=
 function layoutBoard(){
   const board=$('.rs-board'); const hud=$('.rs-hud'); const W=R.root.clientWidth, H=R.root.clientHeight;
   hud.classList.toggle('wide', W>=760);
-  const bw=Math.min(W-16, 1100), bh=board.clientHeight||(H*.6); const T=R.st.trays.length;
+  // Wide screens (desktop / iPad landscape): spread the extra trays out to the sides so every tray fits with no scrolling.
+  const wide = W>=900 && W>=H*1.15; board.classList.toggle('wide', wide);
+  const land = W>H; // phone landscape: when it can't fit, still use more columns so there is less to scroll
+  const bw = wide ? W-24 : Math.min(W-16, 1100), bh=board.clientHeight||(H*.6); const T=R.st.trays.length;
+  const cs=getComputedStyle(board), pad=(parseFloat(cs.paddingTop)||6)+(parseFloat(cs.paddingBottom)||10);
+  const minFit = (wide||land) ? 44 : 50, cap = 92, maxCols = wide ? 8 : 6;
   let best=null;
-  for(let cols=2; cols<=6; cols++){ const rows=Math.ceil(T/cols); if(cols>T) break;
+  for(let cols=2; cols<=maxCols; cols++){ const rows=Math.ceil(T/cols); if(cols>T) break;
+    if(wide && cols>2 && Math.ceil(T/rows)<cols) continue; // wide: keep rows even (12 trays -> 6x2 or 4x3, never 5+5+2)
     // tray width = 3s + 2*.08s + 2*.12s + 6(border) = 3.4s+6 ; gaps .2s ; tray height = s + .36s + .14s + 6 ; row gap .22s
-    const sW=(bw-6*cols-4)/(cols*3.4+(cols-1)*.2); const sH=(bh-6*rows-14)/(rows*1.5+(rows-1)*.22);
-    const s=Math.min(sW, sH, 92); const sScroll=Math.min(sW,92);
-    const score = s>=50 ? s : (Math.min(sScroll,64) - 100); // prefer fitting; else allow scroll with big tiles
-    if(!best || score>best.score) best={cols,s:s>=50?s:Math.min(sScroll,64),score};
+    const sW=(bw-6*cols-4)/(cols*3.4+(cols-1)*.2); const sH=(bh-6*rows-pad-2)/(rows*1.5+(rows-1)*.22);
+    const s=Math.min(sW, sH, cap); const sScroll=Math.min(sW,92);
+    let score;
+    if(s>=minFit) score = wide ? s*(1+.04*cols) : s;   // fits: biggest tiles; on wide screens lean sideways (more columns, fewer rows)
+    else score = (land && sScroll>=56) ? cols - 100 : (Math.min(sScroll,64) - 100); // else allow scroll with big tiles
+    if(!best || score>best.score) best={cols,s:s>=minFit?s:Math.min(sScroll,64),score};
   }
   const s=Math.max(44, Math.floor(best.s)); R.s=s; R.cols=best.cols;
   const grid=$('.rs-grid'); grid.style.setProperty('--s', s+'px'); grid.style.gridTemplateColumns=`repeat(${best.cols}, auto)`;
@@ -166,6 +174,7 @@ function bindUI(){
   root.addEventListener('pointerdown', onDown);
   R.onMove=onMove; R.onUp=onUp; window.addEventListener('pointermove', onMove, {passive:false}); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', onUp); // onUp also handles cancel
   R.onResize=()=>{ if(!R) return; layoutBoard(); render(false); }; window.addEventListener('resize', R.onResize);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ if(R && R.st) layoutBoard(); }); // HUD height can change once Lilita One loads
   R.onKey=(e)=>{ if(!R || !$('.rs-modal').classList.contains('hidden')) return; const k=e.key.toLowerCase(); if(k==='z'||k==='u') undo(); else if(k==='h') onHint(); else if(k==='s') doShuffle(); else if(k==='escape') deselect(); };
   window.addEventListener('keydown', R.onKey);
   $('.rs-back').onclick=()=>{ SND.click(); const ex=R.opts.onExit; if(ex){ closeReefSort(); ex(); } else showMap(); };
