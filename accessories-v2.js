@@ -20,7 +20,7 @@
 // Phone-cheap: low segment counts, cached shared geos/mats, no skinned meshes, no per-frame allocs,
 // no post-processing / bloom (glow is emissive + additive sprites). Matte clay look, metallic only
 // where the item asks for it. Attach to animated parts (hatAnchor, eyeAnchor, sh±1, arm±1, foot±1, rig).
-import * as THREE from './vendor/three.module.min.js?v=20261116-11';
+import * as THREE from './vendor/three.module.min.js?v=20261116-12';
 
 /* ---------------- install (bodyR so tees/pants follow the active silhouette) ---------------- */
 let _bodyR = null, _getProfile = null;
@@ -103,7 +103,23 @@ function goldEnv(){
   return TEX.goldEnv = t;
 }
 function goldM(o = {}){
-  return M(o.c || GOLD, { metal: .92, rough: o.rough ?? .12, emissive: o.emissive ?? 0xffb020, ei: o.ei ?? .55, env: goldEnv(), envI: o.envI ?? 2.3, ...o, env: goldEnv(), envI: o.envI ?? 2.3, metal: .92, rough: o.rough ?? .12 });
+  // Keep metal at .92 (previous helper always overwrote a caller metal after ...o).
+  return M(o.c || GOLD, {
+    metal: .92,
+    rough: o.rough ?? .12,
+    emissive: o.emissive ?? 0xffb020,
+    ei: o.ei ?? .55,
+    env: goldEnv(),
+    envI: o.envI ?? 2.3,
+    opacity: o.opacity,
+    side: o.side,
+    dw: o.dw,
+    add: o.add,
+    map: o.map,
+    mapKey: o.mapKey,
+    emissiveMap: o.emissiveMap,
+    emKey: o.emKey
+  });
 }
 function goldGlowTex(){
   return tex('goldglow', 64, 64, (g, w, h) => {
@@ -119,7 +135,7 @@ function goldGlowTex(){
 }
 function goldGlow(radius, opacity = .55){
   const mat = M(0xffffff, { map: goldGlowTex(), mapKey: 'goldglow', opacity, dw: 0, add: 1, emissive: 0xffcc44, ei: 1, rough: 1, metal: 0, side: THREE.DoubleSide });
-  return new THREE.Mesh(geo('gglow:' + radius, () => new THREE.CircleGeometry(radius, 20)), mat);
+  return new THREE.Mesh(geo('gglow:' + radius, () => new THREE.CircleGeometry(radius, 16)), mat);
 }
 function creamM(o = {}){ return M(o.c || CREAM, { rough: o.rough ?? .82, metal: 0, ...o }); }
 function lavaAlbedo(){
@@ -144,7 +160,18 @@ function lavaGlowMap(){
   });
 }
 function lavaM(o = {}){
-  return M(0xffffff, { map: lavaAlbedo(), mapKey:'lavaAlb', emissiveMap: lavaGlowMap(), emKey:'lavaEm', rough: o.rough ?? .72, metal: o.metal ?? .08, emissive: o.emissive ?? 0xff8a1a, ei: o.ei ?? 1.45, ...o, map: lavaAlbedo(), emissiveMap: lavaGlowMap() });
+  return M(0xffffff, {
+    map: lavaAlbedo(), mapKey:'lavaAlb',
+    emissiveMap: lavaGlowMap(), emKey:'lavaEm',
+    rough: o.rough ?? .72,
+    metal: o.metal ?? .08,
+    emissive: o.emissive ?? 0xff8a1a,
+    ei: o.ei ?? 1.45,
+    side: o.side,
+    opacity: o.opacity,
+    dw: o.dw,
+    add: o.add
+  });
 }
 function magmaM(o = {}){ return M(o.c || 0xff8a14, { rough: o.rough ?? .28, metal: 0, emissive: o.emissive ?? 0xff5a00, ei: o.ei ?? 1.7 }); }
 
@@ -191,6 +218,98 @@ function hideToes(f, mat){
 }
 function accFx(parts){ return parts.accFx || (parts.accFx = {}); }
 function addBoth(parts, key, fn){ for(const s of [-1, 1]) fn(parts[key + s], s); }
+
+/** Bake a mesh's local (or parent*local) matrix into a cloned geometry. Does not mutate the shared source geo. */
+function bakeMesh(m, parentMatrix){
+  if(!m.userData.keepMatrix) m.updateMatrix();
+  const mx = parentMatrix ? parentMatrix.clone().multiply(m.matrix) : m.matrix;
+  const g = m.geometry.clone();
+  g.applyMatrix4(mx);
+  return g;
+}
+function copyAttr(src, dst, dstOffset, itemSize){
+  const n = src.count;
+  if(src.array && src.array.length === n * itemSize && (src.offset || 0) === 0){
+    dst.set(src.array, dstOffset * itemSize);
+    return;
+  }
+  for(let i = 0; i < n; i++){
+    for(let k = 0; k < itemSize; k++) dst[(dstOffset + i) * itemSize + k] = src.getComponent(i, k);
+  }
+}
+/** Merge baked BufferGeometries into one indexed geometry. Does not dispose inputs. */
+function mergeGeos(geos){
+  if(!geos.length) return new THREE.BufferGeometry();
+  let vCount = 0, iCount = 0;
+  const useUV = geos.every(g => g.attributes.uv);
+  const useN = geos.every(g => g.attributes.normal);
+  for(const g of geos){
+    const vc = g.attributes.position.count;
+    vCount += vc;
+    iCount += g.index ? g.index.count : vc;
+  }
+  const pos = new Float32Array(vCount * 3);
+  const nrm = useN ? new Float32Array(vCount * 3) : null;
+  const uv = useUV ? new Float32Array(vCount * 2) : null;
+  const idx = new Uint32Array(iCount);
+  let vo = 0, io = 0;
+  for(const g of geos){
+    const p = g.attributes.position, vc = p.count;
+    copyAttr(p, pos, vo, 3);
+    if(nrm) copyAttr(g.attributes.normal, nrm, vo, 3);
+    if(uv) copyAttr(g.attributes.uv, uv, vo, 2);
+    if(g.index){
+      const ia = g.index.array;
+      for(let i = 0; i < ia.length; i++) idx[io++] = ia[i] + vo;
+    } else {
+      for(let i = 0; i < vc; i++) idx[io++] = vo + i;
+    }
+    vo += vc;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  if(nrm) out.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+  else out.computeVertexNormals();
+  if(uv) out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  out.setIndex(new THREE.BufferAttribute(idx, 1));
+  out.userData.shared = true;
+  return out;
+}
+/** One cached mesh from unattached, pre-transformed meshes that share a material. */
+function mergedMesh(meshes, mat, key){
+  const g = geo(key, () => {
+    const baked = meshes.map(m => bakeMesh(m));
+    const out = mergeGeos(baked);
+    baked.forEach(b => b.dispose());
+    return out;
+  });
+  return new THREE.Mesh(g, mat);
+}
+/** One cached mesh with material groups. groups: [{ meshes, mat }, ...]. Optional parentMatrix per mesh via mesh._parentMx. */
+function mergedMulti(groups, key){
+  const mats = groups.map(gr => gr.mat);
+  const g = geo(key, () => {
+    const bakedAll = [];
+    const ranges = [];
+    let i0 = 0;
+    for(const gr of groups){
+      let count = 0;
+      for(const m of gr.meshes){
+        const b = bakeMesh(m, m._parentMx);
+        bakedAll.push(b);
+        count += b.index ? b.index.count : b.attributes.position.count;
+      }
+      ranges.push({ start: i0, count });
+      i0 += count;
+    }
+    const out = mergeGeos(bakedAll);
+    bakedAll.forEach(b => b.dispose());
+    out.clearGroups();
+    ranges.forEach((r, i) => out.addGroup(r.start, r.count, i));
+    return out;
+  });
+  return new THREE.Mesh(g, mats);
+}
 
 function heartSh(){
   return geo('heart', () => {
@@ -324,8 +443,8 @@ export const ITEMS_V2 = [
   { id:'gloves_lava',   name:'Magma Mitts',         slot:'hands',  r:'mythic',    em:'🔥', m:{ type:'lavagloves', c:0x3a0a08, glow:0xff4a00, framing:F(0, .16, 0) } },
   { id:'brace_lava',    name:'Magma Cuff',          slot:'wrist',  r:'mythic',    em:'🪨', m:{ type:'lavacuff',   c:0x3a0a08, glow:0xff4a00, framing:F(0, .08, 0) } },
   // ----- Heavenly set (legendary, chest-only; matches the gold/white heavenly chest) -----
-  { id:'halo_heaven',      name:'Heavenly Halo',       slot:'hat',    r:'legendary', em:'😇', m:{ type:'halo',      c:0xffe27a, metal:true, glow:0xffb020, framing:F(.9, .5, .28, 0, { up:.05, side:0, back:0, front:0 }) } },
-  { id:'robe_heaven',      name:'Heavenly Robe',       slot:'top',    r:'legendary', em:'🪽', m:{ type:'robe',      c:0xfff6e8, c2:0xffe27a, metal:true, glow:0xffb020, framing:F(.55, 2.05, 1.05, 0, { up:.16, side:.28, back:.14, front:0 }) } },
+  { id:'halo_heaven',      name:'Heavenly Halo',       slot:'hat',    r:'legendary', em:'😇', m:{ type:'halo',      c:0xffe27a, metal:true, glow:0xffb020, framing:F(.62, .42, .22, 0, { up:.04, side:0, back:0, front:0 }) } },
+  { id:'robe_heaven',      name:'Heavenly Robe',       slot:'top',    r:'legendary', em:'🪽', m:{ type:'robe',      c:0xfff6e8, c2:0xffe27a, metal:true, glow:0xffb020, framing:F(.35, .92, .70, 0, { up:.04, side:.12, back:.08, front:0 }) } },
   { id:'drape_heaven',     name:'Heavenly Drapes',     slot:'bottom', r:'legendary', em:'✨', m:{ type:'drape',     c:0xfff6e8, c2:0xffc933, metal:true, framing:F(0, .24, .08) } },
   { id:'sandals_icarus',   name:'Icarus Sandals',      slot:'shoes',  r:'legendary', em:'👡', m:{ type:'icarus',    c:0xffc933, metal:true, glow:0x553300, framing:F(0, .2, .16, .1, { up:0, side:.04, back:.03, front:0 }) } },
   { id:'gauntlets_heaven', name:'Heavenly Gauntlets',  slot:'hands',  r:'legendary', em:'🙌', m:{ type:'gauntlets', c:0xffc933, metal:true, glow:0x553300, framing:F(0, .16, 0) } },
@@ -456,7 +575,20 @@ export function tickAccessories(o, dt, t){
   const p = o && o.userData && o.userData.parts;
   const fx = p && p.accFx;
   if(!fx) return;
-  if(fx.halo){ fx.halo.position.y = fx.haloY + Math.sin(t * 2.2) * fx.haloAmp; }
+  if(fx.halo){
+    fx.halo.position.y = fx.haloY + Math.sin(t * 2.2) * fx.haloAmp;
+    // Keep the ring world-level (head idle/walk tilts hatAnchor). Yaw still follows the character.
+    const par = fx.halo.parent;
+    if(par && fx._qWanted){
+      par.updateWorldMatrix(true, false);
+      par.getWorldQuaternion(fx._qParent);
+      fx._eu.setFromQuaternion(fx._qParent, 'YXZ');
+      // Slight +X tilt: front edge down so the lobby camera (above, in front) sees the ring opening.
+      fx._eu.x = fx.haloTiltX || 0; fx._eu.z = 0;
+      fx._qWanted.setFromEuler(fx._eu);
+      fx.halo.quaternion.copy(fx._qParent).invert().premultiply(fx._qWanted);
+    }
+  }
   const amt = (o.userData.zkAnim && o.userData.zkAnim.amt) || 0;
   if(fx.wingL){
     const a = Math.sin(t * (2.3 + amt * 2.2)) * fx.flapAmp * (.7 + amt * .45);
@@ -620,10 +752,12 @@ const BUILDERS = {
     addBoth(parts, 'foot', (f, s) => {
       const hold = footHold(f); const sx = f.scale.x, sy = f.scale.y, sz = f.scale.z;
       const sole = new THREE.Mesh(geo('isole', () => new THREE.BoxGeometry(1, .22, 1)), gold);
-      sole.scale.set(sx * 2.05, .04, sz * 2.1); sole.position.y = -sy - .01; hold.add(sole);
+      sole.scale.set(sx * 2.05, .04, sz * 2.1); sole.position.y = -sy - .01;
       const st = geo('istrap', () => new THREE.TorusGeometry(.2, .022, 8, 16, Math.PI));
-      const a = new THREE.Mesh(st, strap); a.scale.set(sx / .2 * .95, 1, sz / .2 * .7); a.rotation.x = .45; a.position.set(0, .015, .04); hold.add(a);
-      const b = new THREE.Mesh(st, strap); b.scale.set(sx / .2 * .8, 1, sz / .2 * .5); b.rotation.x = -.15; b.position.set(0, .015, -.05); hold.add(b);
+      const a = new THREE.Mesh(st, strap); a.scale.set(sx / .2 * .95, 1, sz / .2 * .7); a.rotation.x = .45; a.position.set(0, .015, .04);
+      const b = new THREE.Mesh(st, strap); b.scale.set(sx / .2 * .8, 1, sz / .2 * .5); b.rotation.x = -.15; b.position.set(0, .015, -.05);
+      const key = `icarus-shoe:${sx.toFixed(3)}:${sy.toFixed(3)}:${sz.toFixed(3)}`;
+      hold.add(mergedMulti([{ meshes:[sole], mat:gold }, { meshes:[a, b], mat:strap }], key));
       const wing = makeSmallWing();
       wing.position.set(s * (sx + .04), .04, -sz * .2); wing.rotation.y = -s * .3; hold.add(wing);
       const fx = accFx(parts);
@@ -681,12 +815,17 @@ const BUILDERS = {
     const gold = goldM({ ei:.7, emissive:0x886600 });
     const glow = glowM(0xffe7a0, .35);
     addBoth(parts, 'arm', (arm) => {
-      const t = new THREE.Mesh(geo('rcuff2', () => new THREE.TorusGeometry(.135, .032, 8, 18)), gold);
-      t.rotation.x = Math.PI / 2; t.position.y = -.1; arm.add(t);
+      const t = new THREE.Mesh(geo('rcuff2', () => new THREE.TorusGeometry(.135, .032, 8, 16)), gold);
+      t.rotation.x = Math.PI / 2; t.position.y = -.1;
       const ring = new THREE.Mesh(geo('rglow', () => new THREE.TorusGeometry(.135, .05, 8, 16)), glow);
-      ring.rotation.x = Math.PI / 2; ring.position.y = -.1; arm.add(ring);
+      ring.rotation.x = Math.PI / 2; ring.position.y = -.1;
       const ray = geo('rray', () => new THREE.BoxGeometry(.018, .09, .012));
-      for(let i = 0; i < 8; i++){ const a = i / 8 * Math.PI * 2; const r = new THREE.Mesh(ray, gold); r.position.set(Math.sin(a) * .2, -.1, Math.cos(a) * .2); r.lookAt(0, -.1, 0); arm.add(r); }
+      const rays = [];
+      for(let i = 0; i < 8; i++){
+        const a = i / 8 * Math.PI * 2; const r = new THREE.Mesh(ray, gold);
+        r.position.set(Math.sin(a) * .2, -.1, Math.cos(a) * .2); r.lookAt(0, -.1, 0); rays.push(r);
+      }
+      arm.add(mergedMulti([{ meshes:[t, ...rays], mat:gold }, { meshes:[ring], mat:glow }], 'radiant'));
     });
   },
 
@@ -738,15 +877,21 @@ const BUILDERS = {
   },
   gauntlets(m, parts){
     const gold = goldM(); const soft = goldM({ c:GOLD_SOFT, metal:.7, rough:.25 });
+    const gemM = M(0x5ff6ff, { emissive:0x2288aa, ei:.8, metal:.3, rough:.2 });
     addBoth(parts, 'arm', (arm) => {
-      const h = new THREE.Mesh(geo('gglove', () => new THREE.SphereGeometry(.15, 12, 10)), gold);
-      h.position.set(0, -.2, 0); arm.add(h);
+      const h = new THREE.Mesh(geo('gglove', () => new THREE.SphereGeometry(.15, 10, 8)), gold);
+      h.position.set(0, -.2, 0);
       const c = new THREE.Mesh(geo('gcuff', () => new THREE.CylinderGeometry(.14, .11, .1, 12, 1, true)), gold);
-      c.material.side = THREE.DoubleSide; c.position.y = -.1; arm.add(c);
-      const gem = new THREE.Mesh(geo('ggem', () => new THREE.SphereGeometry(.03, 8, 6)), M(0x5ff6ff, { emissive:0x2288aa, ei:.8, metal:.3, rough:.2 }));
-      gem.position.set(0, -.18, .14); arm.add(gem);
+      c.material.side = THREE.DoubleSide; c.position.y = -.1;
+      const gem = new THREE.Mesh(geo('ggem', () => new THREE.SphereGeometry(.03, 8, 6)), gemM);
+      gem.position.set(0, -.18, .14);
       const rim = new THREE.Mesh(geo('grim', () => new THREE.TorusGeometry(.14, .015, 8, 14)), soft);
-      rim.rotation.x = Math.PI / 2; rim.position.y = -.05; arm.add(rim);
+      rim.rotation.x = Math.PI / 2; rim.position.y = -.05;
+      arm.add(mergedMulti([
+        { meshes:[h, c], mat:gold },
+        { meshes:[rim], mat:soft },
+        { meshes:[gem], mat:gemM }
+      ], 'gauntlet'));
     });
   },
 
@@ -829,23 +974,44 @@ const BUILDERS = {
   },
   halo(m, parts, g, H){
     const grp = new THREE.Group();
-    // thick bright gold ring
-    const ring = new THREE.Mesh(geo('halo', () => new THREE.TorusGeometry(.29, .07, 12, 28)), goldM({ ei:.75, emissive:0xffc433, envI:2.6, rough:.1 }));
-    ring.rotation.x = Math.PI / 2; grp.add(ring);
-    const lip = new THREE.Mesh(geo('halolip', () => new THREE.TorusGeometry(.29, .03, 8, 24)), goldM({ c:0xfff6c8, ei:1, emissive:0xffe7a0, envI:2.4, rough:.08 }));
-    lip.rotation.x = Math.PI / 2; grp.add(lip);
-    // SMALL warm gold glow (radial sprite) — must not become a pale-blue head wash
-    const aura = goldGlow(.32, .55); aura.position.z = -.02; grp.add(aura);
-    const floor = goldGlow(.28, .35); floor.rotation.x = -Math.PI / 2; grp.add(floor);
-    const spark = geo('hspark', () => new THREE.SphereGeometry(.03, 8, 6));
+    // hatAnchor is scaled per species (Ollie C 1.1, Wade 1.35). Build in world-sized
+    // units, and sit the ring just ABOVE the measured head crown (a fixed lift buries
+    // it inside Wade's tall head).
+    const hs = Math.max((H && H.scale && H.scale.x) || 1, .001);
+    const inv = 1 / hs;
+    const ringR = .24 * inv, tube = .055 * inv;
+    const lift = haloLiftAboveHead(H) + .20 * inv;
+    const ringM = goldM({ ei:.75, emissive:0xffc433, envI:2.6, rough:.1 });
+    const lipM = goldM({ c:0xfff6c8, ei:1, emissive:0xffe7a0, envI:2.4, rough:.08 });
     const sm = goldM({ c:0xfff6c8, ei:1.2, emissive:0xffe7a0, rough:.1 });
-    for(let i = 0; i < 8; i++){
-      const a = i / 8 * Math.PI * 2 + .3, s = new THREE.Mesh(spark, sm);
-      s.position.set(Math.cos(a) * (.4 + (i % 2) * .07), (i % 2 ? .07 : -.05), Math.sin(a) * (.4 + (i % 2) * .07));
-      s.scale.setScalar(i % 2 ? 1 : .65); grp.add(s);
+    const key = 'halo4:' + hs.toFixed(3);
+    const ring = new THREE.Mesh(geo(key + ':ring', () => new THREE.TorusGeometry(ringR, tube, 8, 22)), ringM);
+    ring.rotation.x = Math.PI / 2;
+    const lip = new THREE.Mesh(geo(key + ':lip', () => new THREE.TorusGeometry(ringR, tube * .42, 6, 18)), lipM);
+    lip.rotation.x = Math.PI / 2;
+    const spark = geo(key + ':spark', () => new THREE.SphereGeometry(.024 * inv, 6, 5));
+    const sparks = [];
+    for(let i = 0; i < 6; i++){
+      const a = i / 6 * Math.PI * 2 + .3, s = new THREE.Mesh(spark, sm);
+      const rr = ringR + tube + (i % 2 ? .025 : .01) * inv;
+      s.position.set(Math.cos(a) * rr, (i % 2 ? .035 : -.025) * inv, Math.sin(a) * rr);
+      s.scale.setScalar(i % 2 ? 1 : .65); sparks.push(s);
     }
-    grp.position.y = .72; H.add(grp);
-    const fx = accFx(parts); fx.halo = grp; fx.haloY = .72; fx.haloAmp = .035;
+    // Modest warm glow in the ring plane — small enough not to read as a soap bubble.
+    const glow = goldGlow(ringR + tube * 1.8, .40); glow.rotation.x = -Math.PI / 2;
+    grp.add(mergedMulti([
+      { meshes: [ring], mat: ringM },
+      { meshes: [lip, ...sparks], mat: sm },
+      { meshes: [glow], mat: glow.material }
+    ], key + ':set'));
+    grp.position.y = lift; H.add(grp);
+    const fx = accFx(parts);
+    fx.halo = grp; fx.haloY = lift; fx.haloAmp = .02; fx.haloTiltX = .38;
+    if(!fx._qWanted){
+      fx._qWanted = new THREE.Quaternion();
+      fx._qParent = new THREE.Quaternion();
+      fx._eu = new THREE.Euler();
+    }
   },
 
   snorkel(m, parts, g, H){
@@ -997,27 +1163,20 @@ const BUILDERS = {
     const cloth = creamM({ c:0xfffdf8, side:THREE.DoubleSide, rough:.78 });
     const gold = goldM({ ei:.65 });
     // white / cream toga with BIG gold trim so gold is the dominant read
-    g.add(new THREE.Mesh(flare(1.18, .48, 1.06, 1.38), cloth));
-    addSleeves(parts, cloth, .18);
-    // wide gold hem
-    g.add(new THREE.Mesh(flare(.62, .48, 1.32, 1.46), gold));
-    // wide gold sash / belt
-    g.add(new THREE.Mesh(slice(.78, .9, 1.12), gold));
-    // gold shoulder pieces
-    const paul = geo('gpaul', () => new THREE.SphereGeometry(.18, 12, 8, 0, Math.PI, 0, Math.PI / 1.5));
-    for(const s of [-1, 1]){
-      const p = new THREE.Mesh(paul, gold);
-      p.rotation.y = s * Math.PI / 2; p.position.set(.02 * s, -.02, .02);
-      parts['sh' + s].add(p);
-    }
-    // gold necklace: beads follow the body curve, dip to a V at the front, pendant flush on the chest
-    addHeavenNecklace(g, gold);
-    const wr = bodyR(1.08) + .1;
+    const body = new THREE.Mesh(flare(1.18, .48, 1.06, 1.38), cloth);
+    const hem = new THREE.Mesh(flare(.62, .48, 1.32, 1.46), gold);
+    const sash = new THREE.Mesh(slice(.78, .9, 1.12), gold);
+    addSleevesAndPauldrons(parts, cloth, gold, .18);
+    // gold necklace + hem + sash share the body gold material (pendant gem is a 2nd group)
+    addHeavenNecklace(g, gold, [hem, sash]);
+    g.add(body);
+    // Upper back, just behind the shoulders, so the fan is visible from the front.
+    const wr = bodyR(1.08) * .62;
     const wingL = makeWing(-1), wingR = makeWing(1);
-    wingL.position.set(-wr, 1.08, -.14); wingR.position.set(wr, 1.08, -.14);
+    wingL.position.set(-wr, 1.06, -.16); wingR.position.set(wr, 1.06, -.16);
     g.add(wingL, wingR);
     const fx = accFx(parts);
-    fx.wingL = wingL; fx.wingR = wingR; fx.wingLZ = 0; fx.wingRZ = 0; fx.flapAmp = .14;
+    fx.wingL = wingL; fx.wingR = wingR; fx.wingLZ = 0; fx.wingRZ = 0; fx.flapAmp = .10;
   },
 
   joggers(m, parts, g){
@@ -1163,21 +1322,27 @@ const BUILDERS = {
   volcano(m, parts, g, H){
     // dark basalt dome, glowing crack map, small crater and a lava drip — no party cone / propeller disc
     const rock = lavaM({ ei:.8, side:THREE.DoubleSide });
-    const cap = new THREE.Mesh(geo('volcap2', () => new THREE.SphereGeometry(.48, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2)), rock);
-    cap.position.y = .22; H.add(cap);
-    const rim = new THREE.Mesh(geo('volrim', () => new THREE.TorusGeometry(.48, .04, 8, 20)), rock);
-    rim.rotation.x = Math.PI / 2; rim.position.y = .22; H.add(rim);
-    const lip = new THREE.Mesh(geo('vollip', () => new THREE.TorusGeometry(.14, .045, 8, 14)), rock);
-    lip.rotation.x = Math.PI / 2; lip.position.y = .68; H.add(lip);
-    const pit = new THREE.Mesh(geo('volpit', () => new THREE.CircleGeometry(.12, 12)), M(0x1a0504, { emissive:0xff3a00, ei:.9, rough:.6 }));
-    pit.rotation.x = -Math.PI / 2; pit.position.y = .665; H.add(pit);
-    const blob = new THREE.Mesh(geo('volblob', () => new THREE.SphereGeometry(.07, 10, 8)), M(0xff6a1a, { emissive:0xff4a00, ei:1.2, rough:.35 }));
-    blob.position.y = .70; H.add(blob);
+    const pitM = M(0x1a0504, { emissive:0xff3a00, ei:.9, rough:.6 });
     const dripM = M(0xff6a1a, { emissive:0xff4a00, ei:1.15, rough:.35 });
-    const drip = new THREE.Mesh(geo('voldrip', () => new THREE.SphereGeometry(.055, 8, 8)), dripM);
-    drip.scale.set(.7, 1.6, .7); drip.position.set(0, .42, .46); H.add(drip);
+    const cap = new THREE.Mesh(geo('volcap2', () => new THREE.SphereGeometry(.48, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2)), rock);
+    cap.position.y = .22;
+    const rim = new THREE.Mesh(geo('volrim', () => new THREE.TorusGeometry(.48, .04, 8, 16)), rock);
+    rim.rotation.x = Math.PI / 2; rim.position.y = .22;
+    const lip = new THREE.Mesh(geo('vollip', () => new THREE.TorusGeometry(.14, .045, 8, 14)), rock);
+    lip.rotation.x = Math.PI / 2; lip.position.y = .68;
+    const pit = new THREE.Mesh(geo('volpit', () => new THREE.CircleGeometry(.12, 12)), pitM);
+    pit.rotation.x = -Math.PI / 2; pit.position.y = .665;
+    const blob = new THREE.Mesh(geo('volblob', () => new THREE.SphereGeometry(.07, 8, 6)), dripM);
+    blob.position.y = .70;
+    const drip = new THREE.Mesh(geo('voldrip', () => new THREE.SphereGeometry(.055, 8, 6)), dripM);
+    drip.scale.set(.7, 1.6, .7); drip.position.set(0, .42, .46);
     const drip2 = new THREE.Mesh(geo('voldrip2', () => new THREE.SphereGeometry(.035, 8, 6)), dripM);
-    drip2.position.set(0, .30, .49); H.add(drip2);
+    drip2.position.set(0, .30, .49);
+    H.add(mergedMulti([
+      { meshes:[cap, rim, lip], mat:rock },
+      { meshes:[pit], mat:pitM },
+      { meshes:[blob, drip, drip2], mat:dripM }
+    ], 'volcano'));
   },
   // WIP, not shipped — Flame Crown builder kept for a later rework. Not in ITEMS_V2.
   flame(m, parts, g, H){
@@ -1269,10 +1434,10 @@ function flameGlow(radius, opacity = .55){
   const mat = M(0xffffff, { map: flameGlowTex(), mapKey:'flameglow', opacity, dw: 0, add: 1, emissive: 0xff8a1a, ei: 1, rough: 1, metal: 0, side: THREE.DoubleSide });
   return new THREE.Mesh(geo('fglow:' + radius, () => new THREE.CircleGeometry(radius, 20)), mat);
 }
-function addHeavenNecklace(g, gold){
+function addHeavenNecklace(g, gold, extras = []){
   // beads sit on the body surface; y dips at the front so the chain reads as a V, not a hoop
   const beadR = .024;
-  const bead = geo('nbead3', () => new THREE.SphereGeometry(beadR, 8, 6));
+  const bead = geo('nbead3', () => new THREE.SphereGeometry(beadR, 6, 5));
   const ySide = 1.18, yFront = .96;
   // robe uses flare(1.18, .48, 1.06, 1.38) — beads must sit outside that surface
   const robeS = (y) => {
@@ -1281,6 +1446,7 @@ function addHeavenNecklace(g, gold){
     return 1.06 + .32 * tt * tt;
   };
   const n = Math.max(28, Math.round(bodyR(ySide) * 56));
+  const beads = [];
   for(let i = 0; i < n; i++){
     const a = (i / n) * Math.PI * 2;
     const dip = Math.max(0, Math.cos(a));
@@ -1288,21 +1454,41 @@ function addHeavenNecklace(g, gold){
     const r = bodyR(y) * robeS(y) + beadR * .85;
     const b = new THREE.Mesh(bead, gold);
     b.position.set(Math.sin(a) * r, y, Math.cos(a) * r);
-    g.add(b);
+    beads.push(b);
   }
   const yP = yFront, rP = bodyR(yP) * robeS(yP) + .036;
-  const medal = new THREE.Mesh(geo('nmedal', () => new THREE.SphereGeometry(.048, 12, 10)), goldM({ ei: .8, envI: 2.6 }));
-  medal.scale.set(1, 1, .75); medal.position.set(0, yP, rP); g.add(medal);
-  const gem = new THREE.Mesh(geo('ngem', () => new THREE.SphereGeometry(.026, 10, 8)), M(0xfff4c4, { metal: .35, rough: .12, emissive: 0xffd24a, ei: 1.25, env: goldEnv(), envI: 2 }));
-  gem.position.set(0, yP, rP + .028); g.add(gem);
-  const star = new THREE.Mesh(starSh(), goldM({ ei: 1, emissive: 0xffc033, envI: 2.6 }));
-  star.scale.setScalar(.055); star.position.set(0, yP, rP + .014); g.add(star);
+  const medal = new THREE.Mesh(geo('nmedal', () => new THREE.SphereGeometry(.048, 10, 8)), gold);
+  medal.scale.set(1, 1, .75); medal.position.set(0, yP, rP);
+  const gemM = M(0xfff4c4, { metal: .35, rough: .12, emissive: 0xffd24a, ei: 1.25, env: goldEnv(), envI: 2 });
+  const gem = new THREE.Mesh(geo('ngem', () => new THREE.SphereGeometry(.026, 8, 6)), gemM);
+  gem.position.set(0, yP, rP + .028);
+  const star = new THREE.Mesh(starSh(), gold);
+  star.scale.setScalar(.055); star.position.set(0, yP, rP + .014);
+  g.add(mergedMulti([
+    { meshes: [...extras, ...beads, medal, star], mat: gold },
+    { meshes: [gem], mat: gemM }
+  ], `nchain:${profKey()}`));
 }
 
 function addSleeves(parts, mat, len = .16){
   const sl = geo('sleeve:' + len, () => new THREE.CylinderGeometry(.155, .15, len, 14, 1, true));
   for(const s of [-1, 1]){
     const m = new THREE.Mesh(sl, mat); m.material.side = THREE.DoubleSide; m.position.set(.03 * s, -.08, 0); m.rotation.z = .12 * s; parts['sh' + s].add(m);
+  }
+}
+function addSleevesAndPauldrons(parts, cloth, gold, len = .18){
+  const sl = geo('sleeve:' + len, () => new THREE.CylinderGeometry(.155, .15, len, 12, 1, true));
+  const paul = geo('gpaul', () => new THREE.SphereGeometry(.18, 10, 6, 0, Math.PI, 0, Math.PI / 1.5));
+  for(const s of [-1, 1]){
+    const sleeve = new THREE.Mesh(sl, cloth);
+    sleeve.material.side = THREE.DoubleSide;
+    sleeve.position.set(.03 * s, -.08, 0); sleeve.rotation.z = .12 * s;
+    const p = new THREE.Mesh(paul, gold);
+    p.rotation.y = s * Math.PI / 2; p.position.set(.02 * s, -.02, .02);
+    parts['sh' + s].add(mergedMulti([
+      { meshes:[sleeve], mat:cloth },
+      { meshes:[p], mat:gold }
+    ], 'shorn:' + (s < 0 ? 'L' : 'R') + ':' + len));
   }
 }
 function capeGeo(){
@@ -1320,14 +1506,61 @@ function capeGeo(){
 }
 function wingFeatherGeo(){
   return geo('wfeather', () => {
-    const g = new THREE.SphereGeometry(1, 10, 8);
+    const g = new THREE.SphereGeometry(1, 8, 6);
     g.scale(.11, .64, .045); g.translate(0, .64, 0);
     return g;
   });
 }
+function wingCovertGeo(){
+  return geo('wcover8', () => {
+    const g = new THREE.SphereGeometry(1, 8, 6);
+    g.scale(.12, .50, .045); g.translate(0, .50, 0);
+    return g;
+  });
+}
+function wingFlightGeo(){
+  return geo('wflight8', () => {
+    const g = new THREE.SphereGeometry(1, 8, 7);
+    g.scale(.11, .68, .042); g.translate(0, .68, 0);
+    return g;
+  });
+}
+/** Head-crown Y in hatAnchor-local units, so the halo can sit just above it.
+ *  Local matrices only (matrixWorld is often stale at equip time). Uses each
+ *  mesh bounding-box corner so we don't miss the true crown by undersampling. */
+function haloLiftAboveHead(H){
+  const hs = Math.max((H && H.scale && H.scale.x) || 1, .001);
+  const head = H && H.parent;
+  if(!head) return .55 / hs;
+  const v = new THREE.Vector3();
+  const mx = new THREE.Matrix4();
+  let yMaxHead = -Infinity;
+  head.traverse(m => {
+    if(!m.isMesh || !m.geometry) return;
+    let q = m, underH = false;
+    while(q && q !== head){ if(q === H){ underH = true; break; } q = q.parent; }
+    if(underH) return;
+    m.updateMatrix();
+    mx.copy(m.matrix);
+    let p = m.parent;
+    while(p && p !== head){
+      p.updateMatrix();
+      mx.premultiply(p.matrix);
+      p = p.parent;
+    }
+    if(!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+    const min = m.geometry.boundingBox.min, max = m.geometry.boundingBox.max;
+    for(let ix = 0; ix < 2; ix++) for(let iy = 0; iy < 2; iy++) for(let iz = 0; iz < 2; iz++){
+      v.set(ix ? max.x : min.x, iy ? max.y : min.y, iz ? max.z : min.z).applyMatrix4(mx);
+      if(v.y > yMaxHead) yMaxHead = v.y;
+    }
+  });
+  if(!(yMaxHead > -Infinity)) return .55 / hs;
+  return (yMaxHead - H.position.y) / hs;
+}
 function featherGeo(){
   return geo('feather', () => {
-    const g = new THREE.SphereGeometry(1, 10, 8);
+    const g = new THREE.SphereGeometry(1, 8, 6);
     g.scale(.22, .55, .08); g.translate(0, .55, 0);
     return g;
   });
@@ -1335,44 +1568,78 @@ function featherGeo(){
 function makeVisor(H, frameMat, glassMat){
   // thin brow sits ABOVE the eyes (eye beads are ~y=.14 in eyeAnchor space)
   const brow = new THREE.Mesh(geo('visbrow', () => new THREE.TorusGeometry(.5, .016, 8, 20, Math.PI / 1.2)), frameMat);
-  brow.rotation.set(Math.PI / 2, 0, 0); brow.position.y = .3; brow.scale.set(1.02, 1, 1.06); H.add(brow);
+  brow.rotation.set(Math.PI / 2, 0, 0); brow.position.y = .3; brow.scale.set(1.02, 1, 1.06);
   // very transparent glass over the eyes; depthWrite off so bead eyes show through
   const glass = new THREE.Mesh(geo('visglass', () => new THREE.CylinderGeometry(.5, .5, .2, 20, 1, true, -Math.PI / 2.5, Math.PI / 1.2)), glassMat);
-  glass.position.y = .14; glass.scale.set(1.02, 1, 1.06); H.add(glass);
+  glass.position.y = .14; glass.scale.set(1.02, 1, 1.06);
+  H.add(mergedMulti([{ meshes:[brow], mat:frameMat }, { meshes:[glass], mat:glassMat }], 'visor'));
 }
 function makeWing(s){
+  // Angel wings: two layered, curved, scalloped feather rows spreading OUT and
+  // slightly up from the upper back at ~30–40° from vertical. Mild back sweep
+  // only — a deep X tilt made them read as edge-on paddles / bunny ears from
+  // the lobby camera. Feather geometry is along +Y. Tips stay below head-top.
   const grp = new THREE.Group();
   const white = creamM({ c:0xfff8ee, rough:.74 });
   const gold = goldM({ ei:1 });
-  grp.add(new THREE.Mesh(geo('wingroot', () => new THREE.SphereGeometry(.1, 10, 8)), gold));
-  const quillG = geo('quill', () => new THREE.CylinderGeometry(.01, .006, 1.2, 6));
-  for(let i = 0; i < 7; i++){
-    const t = i / 6, f = new THREE.Mesh(wingFeatherGeo(), white);
-    // geometry is along +Y; rot.z must be -s so +Y swings OUTWARD, not across the back
-    f.position.set(s * (.1 + t * .05), .02 + t * .07, -.04 - t * .04);
-    f.rotation.z = -s * (.65 + t * .55);
-    f.rotation.x = -.1 - t * .08;
-    f.rotation.y = s * .05;
-    f.scale.setScalar(1.05 + t * .35);
-    grp.add(f);
-    const tip = new THREE.Mesh(wingFeatherGeo(), gold);
-    tip.position.y = .5; tip.scale.setScalar(.7); f.add(tip);
+  const root = new THREE.Mesh(geo('wingroot8', () => new THREE.SphereGeometry(.07, 8, 6)), gold);
+  const quillG = geo('quill8', () => new THREE.CylinderGeometry(.007, .0035, .85, 6));
+  const coverG = wingCovertGeo(), flightG = wingFlightGeo();
+  const whites = [], golds = [root];
+  const addFeather = (geo, t, ang, x, y, z, sx, sy, tip) => {
+    const f = new THREE.Mesh(geo, white);
+    f.position.set(s * x, y, z);
+    f.rotation.z = -s * ang;
+    f.rotation.x = -.14 - t * .08;
+    f.rotation.y = s * (.05 + t * .02);
+    f.scale.set(sx, sy, 1);
+    f.updateMatrix();
+    whites.push(f);
+    if(tip){
+      const gtip = new THREE.Mesh(geo, gold);
+      gtip.position.y = .58; gtip.scale.set(.7, .4, 1.05);
+      gtip._parentMx = f.matrix.clone();
+      golds.push(gtip);
+    }
     const q = new THREE.Mesh(quillG, gold);
     q.position.copy(f.position); q.rotation.copy(f.rotation);
-    q.scale.set(1, f.scale.y, 1); grp.add(q);
+    q.scale.set(1, sy * .8, 1);
+    golds.push(q);
+  };
+  // Inner coverts: shorter front layer, ~28–36° from vertical.
+  for(let i = 0; i < 6; i++){
+    const t = i / 5, ang = .49 + t * .14;
+    addFeather(coverG, t, ang,
+      .025 + t * .045 + t * t * .02,
+      .08 + t * .045,
+      -.03 - t * .025,
+      1.0, .46 + t * .10, false);
   }
+  // Flight feathers: longer back layer, scalloped lengths, 32–40°, gold tips.
+  for(let i = 0; i < 8; i++){
+    const t = i / 7, ang = .56 + t * .14;
+    const scallop = .60 + Math.sin((t * .85 + .08) * Math.PI) * .18;
+    addFeather(flightG, t, ang,
+      .05 + t * .065 + t * t * .035,
+      .01 + t * .055,
+      -.08 - t * .05,
+      1.0 + t * .06, scallop, true);
+  }
+  grp.add(mergedMulti([{ meshes:whites, mat:white }, { meshes:golds, mat:gold }], 'wing8:' + (s < 0 ? 'L' : 'R')));
   return grp;
 }
 function makeSmallWing(){
   const grp = new THREE.Group();
   const white = creamM({ c:WHITE, rough:.78 });
   const gold = goldM({ rough:.22 });
-  grp.add(new THREE.Mesh(geo('awroot', () => new THREE.SphereGeometry(.03, 8, 6)), gold));
+  const root = new THREE.Mesh(geo('awroot', () => new THREE.SphereGeometry(.03, 8, 6)), gold);
+  const whites = [], golds = [root];
   for(let i = 0; i < 3; i++){
     const f = new THREE.Mesh(featherGeo(), i === 2 ? gold : white);
     f.scale.setScalar(.14 + i * .05); f.position.set(0, i * .01, -i * .008); f.rotation.z = .85 + i * .2; f.rotation.x = -.25;
-    grp.add(f);
+    (i === 2 ? golds : whites).push(f);
   }
+  grp.add(mergedMulti([{ meshes:whites, mat:white }, { meshes:golds, mat:gold }], 'awing'));
   return grp;
 }
 

@@ -1,16 +1,16 @@
 // ZKIDZ – Ocean Maze prototype. Three.js, no build step.
-import * as THREE from './vendor/three.module.min.js?v=20261116-11';
-import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-11';
-import * as ECO from './economy.js?v=20261116-11';
-import { openReefSort } from './sort/reef-sort.js?v=20261116-11';
-import { openReefDiner } from './dash/dash.js?v=20261116-11';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-11';
-import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-11';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-11';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-11';
-import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-11';
-import * as LB from './lb.js?v=20261116-11';
-import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261116-11';
+import * as THREE from './vendor/three.module.min.js?v=20261116-12';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-12';
+import * as ECO from './economy.js?v=20261116-12';
+import { openReefSort } from './sort/reef-sort.js?v=20261116-12';
+import { openReefDiner } from './dash/dash.js?v=20261116-12';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-12';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-12';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-12';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-12';
+import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-12';
+import * as LB from './lb.js?v=20261116-12';
+import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261116-12';
 
 /* ===================== DATA ===================== */
 const RARITIES = [
@@ -165,7 +165,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-11';
+const ASSET_V = '20261116-12';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';

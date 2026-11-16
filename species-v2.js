@@ -2,9 +2,9 @@
 // Replaces game.js dressSpecies(): each species gets its own cached silhouette (body + head lathes), a painted clay
 // material (one shader per species: belly/patches/dots/stripes are fragment masks, so no extra meshes or textures),
 // and cached fins/tails/gills. buildOllieV2() calls buildSpeciesV2() for every non-otter playable.
-import * as THREE from './vendor/three.module.min.js?v=20261116-11';
-import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261116-11';
-import { B2, buildB2, b2Profile, clothProfile as b2ClothProfile } from './species-b2.js?v=20261116-11';   // batch 2 (v4, rebuilt from the mockups)
+import * as THREE from './vendor/three.module.min.js?v=20261116-12';
+import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261116-12';
+import { B2, buildB2, b2Profile, clothProfile as b2ClothProfile } from './species-b2.js?v=20261116-12';   // batch 2 (v4, rebuilt from the mockups)
 
 const W = 'vec3(0.97,0.96,0.93)';
 // ---------- per-species config (rig coords: y up, +z = face). Profiles are [radius, y]. ----------
