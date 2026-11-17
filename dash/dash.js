@@ -52,8 +52,8 @@ const avatars = Object.create(null);
 
 function defaultArt(id){
   if(window.__ART && window.__ART[id]) return window.__ART[id];
-  try{ return new URL(`../art/${id}.jpg?v=20261116-12`, import.meta.url).href; }
-  catch(e){ return `art/${id}.jpg?v=20261116-12`; }
+  try{ return new URL(`../art/${id}.jpg?v=20261116-13`, import.meta.url).href; }
+  catch(e){ return `art/${id}.jpg?v=20261116-13`; }
 }
 function defaultDashSave(){
   return { v:1, best:0, bests:{}, stars:{}, unlocked:1, tips:0, upgrades:{ shoes:0, tray:0, kitchen:0, table:0, patience:0, decor:0 } };
@@ -410,7 +410,7 @@ export function openReefDiner(opts={}){
   if(!document.getElementById('reefDashCss') && !opts.noCss){
     const l=document.createElement('link');
     l.id='reefDashCss'; l.rel='stylesheet';
-    l.href=new URL('./dash.css?v=20261116-12', import.meta.url).href;
+    l.href=new URL('./dash.css?v=20261116-13', import.meta.url).href;
     document.head.appendChild(l);
   }
 

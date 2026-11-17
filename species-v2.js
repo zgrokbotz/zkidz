@@ -2,9 +2,10 @@
 // Replaces game.js dressSpecies(): each species gets its own cached silhouette (body + head lathes), a painted clay
 // material (one shader per species: belly/patches/dots/stripes are fragment masks, so no extra meshes or textures),
 // and cached fins/tails/gills. buildOllieV2() calls buildSpeciesV2() for every non-otter playable.
-import * as THREE from './vendor/three.module.min.js?v=20261116-12';
-import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261116-12';
-import { B2, buildB2, b2Profile, clothProfile as b2ClothProfile } from './species-b2.js?v=20261116-12';   // batch 2 (v4, rebuilt from the mockups)
+import * as THREE from './vendor/three.module.min.js?v=20261116-13';
+import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261116-13';
+import { B2, buildB2, b2Profile, clothProfile as b2ClothProfile, CLOTH_FIT, clothFit } from './species-b2.js?v=20261116-13';   // batch 2 (v5 polish + CLOTH_FIT)
+export { CLOTH_FIT, clothFit };
 
 const W = 'vec3(0.97,0.96,0.93)';
 // ---------- per-species config (rig coords: y up, +z = face). Profiles are [radius, y]. ----------
@@ -115,10 +116,10 @@ export const FRAME_EXTENT = {
   pip: { w:1.52, h:2.18, d:1.37, x0:-0.76, x1:0.76, y0:-0.03, y1:2.15, z0:-0.63, z1:0.74 },
   sunny: { w:1.59, h:2.17, d:1.3, x0:-0.79, x1:0.79, y0:-0.02, y1:2.15, z0:-0.62, z1:0.68 },
   jelly: { w:1.83, h:2.1, d:1.73, x0:-0.92, x1:0.92, y0:0, y1:2.1, z0:-0.84, z1:0.88 },
-  lulu: { w:2.4, h:2.4, d:1.11, x0:-1.2, x1:1.2, y0:-0.02, y1:2.39, z0:-0.55, z1:0.55 },
+  lulu: { w:2.4, h:2.42, d:1.11, x0:-1.2, x1:1.2, y0:-0.02, y1:2.42, z0:-0.55, z1:0.55 },
   percy: { w:2.36, h:2.31, d:2.24, x0:-1.18, x1:1.18, y0:-0.01, y1:2.31, z0:-1.38, z1:0.85 },
   nova: { w:1.78, h:2.41, d:1.78, x0:-0.89, x1:0.89, y0:-0.02, y1:2.38, z0:-1.16, z1:0.62 },
-  kelpie: { w:1.55, h:2.42, d:0.85, x0:-0.78, x1:0.78, y0:-0.02, y1:2.4, z0:-0.43, z1:0.43 },
+  kelpie: { w:1.55, h:2.40, d:0.85, x0:-0.78, x1:0.78, y0:-0.02, y1:2.40, z0:-0.43, z1:0.43 },
   giga: { w:1.61, h:2.36, d:1.28, x0:-0.8, x1:0.8, y0:-0.01, y1:2.35, z0:-0.62, z1:0.66 },
 };
 

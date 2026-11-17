@@ -1,16 +1,16 @@
 // ZKIDZ – Ocean Maze prototype. Three.js, no build step.
-import * as THREE from './vendor/three.module.min.js?v=20261116-12';
-import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-12';
-import * as ECO from './economy.js?v=20261116-12';
-import { openReefSort } from './sort/reef-sort.js?v=20261116-12';
-import { openReefDiner } from './dash/dash.js?v=20261116-12';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-12';
-import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-12';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-12';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-12';
-import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-12';
-import * as LB from './lb.js?v=20261116-12';
-import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261116-12';
+import * as THREE from './vendor/three.module.min.js?v=20261116-13';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-13';
+import * as ECO from './economy.js?v=20261116-13';
+import { openReefSort } from './sort/reef-sort.js?v=20261116-13';
+import { openReefDiner } from './dash/dash.js?v=20261116-13';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-13';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-13';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-13';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-13';
+import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-13';
+import * as LB from './lb.js?v=20261116-13';
+import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261116-13';
 
 /* ===================== DATA ===================== */
 const RARITIES = [
@@ -165,7 +165,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-12';
+const ASSET_V = '20261116-13';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -446,11 +446,50 @@ function addEquipmentOriginal(g, parts, eq){
     if(m.type==='hearts'||m.type==='stars'){ for(const s of [-1,1]){ const sh=m.type==='hearts'?heartShape():starShape(); const l=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:.03,bevelEnabled:true,bevelThickness:.02,bevelSize:.03,bevelSegments:3}), MM(m.c,{emissive:m.type==='stars'?0x553300:0x330008})); l.scale.setScalar(.15); l.position.set(.2*s,.15,.52); H.add(l);} const br=new THREE.Mesh(new THREE.BoxGeometry(.12,.025,.03), MM(m.c)); br.position.set(0,.18,.53); H.add(br); }
     if(m.type==='eyepatch'){ const p=new THREE.Mesh(new THREE.CircleGeometry(.1,20), MM(m.c)); p.position.set(.2,.15,.52); H.add(p); const strap=new THREE.Mesh(new THREE.TorusGeometry(.5,.018,6,36), MM(m.c)); strap.rotation.set(Math.PI/2,0,-.35); strap.position.y=.2; H.add(strap); }
     if(m.type==='visor'){ const v=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,.14,32,1,true,-Math.PI/2.6,Math.PI/1.3), mat(m.c,{opacity:.7,emissive:m.c,ei:.35,rough:.1})); v.material.side=THREE.DoubleSide; v.position.y=.15; v.scale.set(1.02,1,1.07); H.add(v); }
-    if(m.type==='tee'||m.type==='jacket'){ const t=new THREE.Mesh(profileSlice(.6,1.2,m.type==='jacket'?1.07:1.04), MM(m.c)); t.material.side=THREE.DoubleSide; g.add(t);
-      for(const s of [-1,1]){ const sl=new THREE.Mesh(new THREE.CylinderGeometry(.155,.15,.16,20,1,true), MM(m.c)); sl.material.side=THREE.DoubleSide; sl.position.set(.03*s,-.08,0); sl.rotation.z=.12*s; parts['sh'+s].add(sl);}
-      if(m.type==='jacket'){ const col=new THREE.Mesh(new THREE.TorusGeometry(bodyR(1.2)*1.04,.06,10,36), MM(m.c)); col.rotation.x=Math.PI/2; col.position.y=1.2; g.add(col); const zip=new THREE.Mesh(new THREE.BoxGeometry(.035,.56,.02), mat(0xdddddd,{metal:.8})); zip.position.set(0,.9,bodyR(.9)*1.07+.005); g.add(zip); if(m.glow){ for(let i=0;i<8;i++){ const st=new THREE.Mesh(new THREE.SphereGeometry(.025,6,4), mat(0xffffff,{emissive:0xffffff})); const a=rand(-1.3,1.3), y=rand(.7,1.15); st.position.set(Math.sin(a)*bodyR(y)*1.08,y,Math.cos(a)*bodyR(y)*1.08); g.add(st);} } } }
-    if(m.type==='pants'){ const p=new THREE.Mesh(profileSlice(.26,.62,1.05), MM(m.c)); p.material.side=THREE.DoubleSide; g.add(p); }
-    if(m.type==='shoes'){ for(const s of [-1,1]){ const f=parts['foot'+s]; f.material = MM(m.c); f.userData.base=false; f.children.forEach(c=>c.visible=false); const sole=new THREE.Mesh(new THREE.SphereGeometry(1,24,10,0,Math.PI*2,Math.PI/2,Math.PI/2), MM(0xffffff)); sole.scale.set(1.06,1.1,1.06); f.add(sole);} }
+    if(m.type==='tee'||m.type==='jacket'){
+      const isJ=m.type==='jacket';
+      const y0=isJ&&ACTIVE_PROFILE&&ACTIVE_PROFILE.jacketBottom!=null?ACTIVE_PROFILE.jacketBottom
+            :((ACTIVE_PROFILE&&ACTIVE_PROFILE.teeBottom)!=null?ACTIVE_PROFILE.teeBottom:.6);
+      const y1=isJ&&ACTIVE_PROFILE&&ACTIVE_PROFILE.jacketTop!=null?ACTIVE_PROFILE.jacketTop
+            :((ACTIVE_PROFILE&&ACTIVE_PROFILE.teeTop)!=null?ACTIVE_PROFILE.teeTop:1.2);
+      const sc=isJ?((ACTIVE_PROFILE&&ACTIVE_PROFILE.jacketScale)!=null?ACTIVE_PROFILE.jacketScale:1.07)
+            :((ACTIVE_PROFILE&&ACTIVE_PROFILE.teeScale)!=null?ACTIVE_PROFILE.teeScale:1.04);
+      const t=new THREE.Mesh(profileSlice(y0,y1,sc), MM(m.c)); t.material.side=THREE.DoubleSide; g.add(t);
+      for(const s of [-1,1]){ const sl=new THREE.Mesh(new THREE.CylinderGeometry(.155,.15,.16,20,1,true), MM(m.c)); sl.material.side=THREE.DoubleSide; sl.position.set(.03*s,-.08,0); sl.rotation.z=.12*s; parts['sh'+s].add(sl); }
+      if(m.type==='jacket'){
+        if(!(ACTIVE_PROFILE&&ACTIVE_PROFILE.jacketCollar===false)){
+          const col=new THREE.Mesh(new THREE.TorusGeometry(bodyR(y1)*1.04,.06,10,36), MM(m.c));
+          col.rotation.x=Math.PI/2; col.position.y=y1; g.add(col);
+        }
+        const mid=(y0+y1)/2,
+              zip=new THREE.Mesh(new THREE.BoxGeometry(.035,Math.max(.2,y1-y0-.1),.02), mat(0xdddddd,{metal:.8}));
+        zip.position.set(0,mid,bodyR(mid)*sc+.005); g.add(zip);
+        if(m.glow){ for(let i=0;i<8;i++){ const st=new THREE.Mesh(new THREE.SphereGeometry(.025,6,4), mat(0xffffff,{emissive:0xffffff}));
+          const a=rand(-1.3,1.3), y=rand(y0+.1,y1-.05);
+          st.position.set(Math.sin(a)*bodyR(y)*sc,y,Math.cos(a)*bodyR(y)*sc); g.add(st); } }
+      }
+    }
+    if(m.type==='pants'){
+      const y0=(ACTIVE_PROFILE&&ACTIVE_PROFILE.pantBottom)!=null?ACTIVE_PROFILE.pantBottom:.26,
+            y1=(ACTIVE_PROFILE&&ACTIVE_PROFILE.pantTop)!=null?ACTIVE_PROFILE.pantTop:.62,
+            sc=(ACTIVE_PROFILE&&ACTIVE_PROFILE.pantScale)!=null?ACTIVE_PROFILE.pantScale:1.05;
+      const p=new THREE.Mesh(profileSlice(y0,y1,sc), MM(m.c)); p.material.side=THREE.DoubleSide; g.add(p);
+      if(ACTIVE_PROFILE&&ACTIVE_PROFILE.pantTrim!=null){
+        const TM=MM(ACTIVE_PROFILE.pantTrim);
+        const tr=(ACTIVE_PROFILE.pantTrimR!=null)?ACTIVE_PROFILE.pantTrimR:.035;
+        const hem=new THREE.Mesh(new THREE.TorusGeometry(Math.max(.05,bodyR(y0)*sc),tr,10,32), TM);
+        hem.rotation.x=Math.PI/2; hem.position.y=y0; g.add(hem);
+        const waist=new THREE.Mesh(new THREE.TorusGeometry(Math.max(.05,bodyR(y1)*sc),tr*.85,10,32), TM);
+        waist.rotation.x=Math.PI/2; waist.position.y=y1; g.add(waist);
+      }
+    }
+    if(m.type==='shoes'){
+      if(!(ACTIVE_PROFILE&&ACTIVE_PROFILE.shoes==='hide')){
+        for(const s of [-1,1]){ const f=parts['foot'+s]; f.material=MM(m.c); f.userData.base=false; f.children.forEach(c=>c.visible=false);
+          const sole=new THREE.Mesh(new THREE.SphereGeometry(1,24,10,0,Math.PI*2,Math.PI/2,Math.PI/2), MM(0xffffff));
+          sole.scale.set(1.06,1.1,1.06); f.add(sole); }
+      }
+    }
     if(m.type==='bracelet'){ for(const s of [-1,1]){ const b=new THREE.Mesh(new THREE.TorusGeometry(.135,.035,10,24), MM(m.c)); b.rotation.x=Math.PI/2; b.position.set(0,-.1,0); parts['arm'+s].add(b);} }
     if(m.type==='gloves'){ for(const s of [-1,1]){ const h=new THREE.Mesh(new THREE.SphereGeometry(.15,18,12), MM(m.c)); h.position.set(0,-.2,0); parts['arm'+s].add(h);} }
   }

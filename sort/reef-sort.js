@@ -2,7 +2,7 @@
  * Usage (inside the main game):  import { openReefSort } from './sort/reef-sort.js';
  *   openReefSort({ ECO, S, save, onExit: () => {...} });
  * Standalone harness: sort/index.html (uses makeLocalHost). See INTEGRATION.md. */
-import { SORT_CHARS, BAR_SIZE, LEVEL_COUNT, levelParams, buildLevel, solve, reshuffle } from './levels.js?v=20261116-12';
+import { SORT_CHARS, BAR_SIZE, LEVEL_COUNT, levelParams, buildLevel, solve, reshuffle } from './levels.js?v=20261116-13';
 
 /* ============================================================================================
  * REWARDS — Zokenomics' economy v2, approved by Zander.
@@ -63,11 +63,11 @@ let R = null; // the one running instance
 const $ = (sel, el) => (el||R.root).querySelector(sel);
 const $$ = (sel, el) => [...(el||R.root).querySelectorAll(sel)];
 const CHEERS = ['YAY!','WOO-HOO!','SPLASH!','HOORAY!','YIPPEE!','WHEEE!','TA-DA!'];
-const defaultArt = (id) => (typeof window!=='undefined' && window.__ART && window.__ART[id]) || new URL(`../art/${id}.jpg?v=20261116-12`, import.meta.url).href;
+const defaultArt = (id) => (typeof window!=='undefined' && window.__ART && window.__ART[id]) || new URL(`../art/${id}.jpg?v=20261116-13`, import.meta.url).href;
 
 export function openReefSort(opts={}){
   if(R) closeReefSort();
-  if(!document.getElementById('reefSortCss') && !opts.noCss){ const l=document.createElement('link'); l.id='reefSortCss'; l.rel='stylesheet'; l.href=new URL('./reef-sort.css?v=20261116-12', import.meta.url).href; l.onload=()=>{ if(R && R.st){ layoutBoard(); render(false); } }; document.head.appendChild(l); } // re-measure once the stylesheet is in
+  if(!document.getElementById('reefSortCss') && !opts.noCss){ const l=document.createElement('link'); l.id='reefSortCss'; l.rel='stylesheet'; l.href=new URL('./reef-sort.css?v=20261116-13', import.meta.url).href; l.onload=()=>{ if(R && R.st){ layoutBoard(); render(false); } }; document.head.appendChild(l); } // re-measure once the stylesheet is in
   const P=loadSortSave(); SND.muted=!!P.muted;
   R = { opts, P, art: opts.artUrl || defaultArt, root:null, st:null, busy:false, sel:null, hist:[], drag:null, timers:new Set(), hintShown:false, idleT:0 };
   const root=document.createElement('div'); root.id='reefSort'; R.root=root;

@@ -20,7 +20,7 @@
 // Phone-cheap: low segment counts, cached shared geos/mats, no skinned meshes, no per-frame allocs,
 // no post-processing / bloom (glow is emissive + additive sprites). Matte clay look, metallic only
 // where the item asks for it. Attach to animated parts (hatAnchor, eyeAnchor, sh±1, arm±1, foot±1, rig).
-import * as THREE from './vendor/three.module.min.js?v=20261116-12';
+import * as THREE from './vendor/three.module.min.js?v=20261116-13';
 
 /* ---------------- install (bodyR so tees/pants follow the active silhouette) ---------------- */
 let _bodyR = null, _getProfile = null;
@@ -39,6 +39,34 @@ function bodyR(y){
   }
   return 0;
 }
+function yRange(d0, d1, slot){
+  const P = _getProfile && _getProfile();
+  if(slot === 'top'    && P && P.teeBottom  != null) return [P.teeBottom,  P.teeTop];
+  if(slot === 'bottom' && P && P.pantBottom != null) return [P.pantBottom, P.pantTop];
+  return [d0, d1];
+}
+function slotScale(slot, d){
+  const P = _getProfile && _getProfile();
+  if(!P) return d;
+  if(slot === 'top'    && P.teeScale    != null) return P.teeScale;
+  if(slot === 'bottom' && P.pantScale   != null) return P.pantScale;
+  if(slot === 'wrist'  && P.wristScale  != null) return P.wristScale;
+  if(slot === 'hands'  && P.handScale   != null) return P.handScale;
+  if(slot === 'shoes'  && P.shoeScale   != null) return P.shoeScale;
+  return d;
+}
+function addPantTrim(g){
+  const P = _getProfile && _getProfile();
+  if(!P || P.pantTrim == null || P.pantBottom == null) return;
+  const y0 = P.pantBottom, y1 = P.pantTop, sc = P.pantScale != null ? P.pantScale : 1.05;
+  const TM = M(P.pantTrim, { rough:.6 });
+  const tr = P.pantTrimR != null ? P.pantTrimR : .035;
+  const hem = new THREE.Mesh(new THREE.TorusGeometry(Math.max(.05, bodyR(y0)*sc), tr, 8, 20), TM);
+  hem.rotation.x = Math.PI/2; hem.position.y = y0; g.add(hem);
+  const waist = new THREE.Mesh(new THREE.TorusGeometry(Math.max(.05, bodyR(y1)*sc), tr*.85, 8, 20), TM);
+  waist.rotation.x = Math.PI/2; waist.position.y = y1; g.add(waist);
+}
+
 function profKey(){ return [0.3, 0.6, 0.9, 1.2].map(y => bodyR(y).toFixed(3)).join(','); }
 
 /* ---------------- shared cache (geos tagged userData.shared so rebuilds don't dispose them) ---------------- */
@@ -561,9 +589,19 @@ export function addEquipmentV2(m, parts, g, H){
 export function wrapAddEquipment(originalAdd, IMAP){
   return function addEquipment(g, parts, eq){
     const leftover = {};
+    const P = _getProfile && _getProfile();
     for(const slot in eq){
       const it = IMAP[eq[slot]]; if(!it) continue;
-      if(addEquipmentV2(it.m, parts, g, pickAnchor(it.m, parts))) continue;
+      if(slot === 'shoes' && P && P.shoes === 'hide') continue;
+      if(addEquipmentV2(it.m, parts, g, pickAnchor(it.m, parts))){
+        if(slot === 'bottom') addPantTrim(g);
+        const sc = slotScale(slot, 1);
+        if((slot === 'wrist' || slot === 'hands' || slot === 'shoes') && sc !== 1){
+          const roots = slot === 'shoes' ? [parts['foot-1'], parts.foot1] : [parts['arm-1'], parts.arm1];
+          for(const r of roots){ if(!r) continue; r.traverse(o => { if(o.isMesh && !o.userData.base) o.scale.multiplyScalar(sc); }); }
+        }
+        continue;
+      }
       leftover[slot] = eq[slot];
     }
     if(Object.keys(leftover).length) originalAdd(g, parts, leftover);
@@ -623,7 +661,7 @@ export function tickAccessories(o, dt, t){
 const BUILDERS = {
   cargo(m, parts, g){
     const mat = MM(m, m.c, { side:THREE.DoubleSide });
-    g.add(new THREE.Mesh(slice(.36, .62, 1.05), mat));
+    g.add(new THREE.Mesh(slice(...yRange(.36, .62, 'bottom'), slotScale('bottom', 1.05)), mat));
     const pocket = geo('cpocket', () => new THREE.BoxGeometry(.16, .12, .05));
     const flap = geo('cflap', () => new THREE.BoxGeometry(.16, .04, .05));
     const btn = geo('cbtn', () => new THREE.SphereGeometry(.018, 8, 6));
@@ -637,7 +675,7 @@ const BUILDERS = {
   },
   overalls(m, parts, g){
     const mat = MM(m, m.c, { side:THREE.DoubleSide });
-    g.add(new THREE.Mesh(slice(.26, .62, 1.05), mat));
+    g.add(new THREE.Mesh(slice(...yRange(.26, .62, 'bottom'), slotScale('bottom', 1.05)), mat));
     const bib = new THREE.Mesh(geo('bib', () => new THREE.BoxGeometry(.4, .46, .05)), mat);
     bib.position.set(0, .84, bodyR(.9) * 1.06 + .01); g.add(bib);
     const btn = geo('obtn', () => new THREE.SphereGeometry(.03, 8, 6));
@@ -662,13 +700,13 @@ const BUILDERS = {
   board(m, parts, g){
     const map = nebulaMap();
     const mat = MM(m, 0xffffff, { map, mapKey:'nebula', side:THREE.DoubleSide, emissive:m.glow || 0x2a0a80, ei:.35, rough:.72 });
-    g.add(new THREE.Mesh(slice(.34, .62, 1.05), mat));
+    g.add(new THREE.Mesh(slice(...yRange(.34, .62, 'bottom'), slotScale('bottom', 1.05)), mat));
     const stripe = new THREE.Mesh(geo(`bstr:${profKey()}`, () => new THREE.TorusGeometry(bodyR(.48) * 1.06, .02, 8, 20)), M(0x5ff6ff, { emissive:0x5ff6ff, ei:.5, rough:.4 }));
     stripe.rotation.x = Math.PI / 2; stripe.position.y = .48; g.add(stripe);
   },
   starlegs(m, parts, g){
     const mat = MM(m, 0xffffff, { map:starMap(), mapKey:'stars', side:THREE.DoubleSide, emissive:m.glow || 0x1a0840, ei:.4, rough:.7 });
-    g.add(new THREE.Mesh(slice(.22, .62, 1.05), mat));
+    g.add(new THREE.Mesh(slice(...yRange(.22, .62, 'bottom'), slotScale('bottom', 1.05)), mat));
   },
   drape(m, parts, g){
     g.add(new THREE.Mesh(flare(.62, .32, 1.05, 1.42), creamM({ c:0xfffdf8, side:THREE.DoubleSide })));
@@ -1086,7 +1124,7 @@ const BUILDERS = {
 
   sailor(m, parts, g){
     const mat = MM(m, 0xffffff, { map:sailorMap(), mapKey:'sailor', side:THREE.DoubleSide, rough:.75 });
-    g.add(new THREE.Mesh(slice(.6, 1.2, 1.04), mat));
+    g.add(new THREE.Mesh(slice(...yRange(.6, 1.2, 'top'), slotScale('top', 1.04)), mat));
     addSleeves(parts, mat);
     const collar = M(m.c2 || 0xf4f7ff, { rough:.75, side:THREE.DoubleSide });
     const flap = geo('scollar', () => new THREE.BoxGeometry(.55, .02, .28));
@@ -1101,7 +1139,7 @@ const BUILDERS = {
   },
   vest(m, parts, g){
     const mat = MM(m, m.c, { side:THREE.DoubleSide, rough:.7 });
-    g.add(new THREE.Mesh(slice(.62, 1.18, 1.14), mat));
+    g.add(new THREE.Mesh(slice(...yRange(.62, 1.18, 'top'), slotScale('top', 1.14)), mat));
     const tape = M(0xf4f4f4, { rough:.6, emissive:0x333333, ei:.08 });
     for(const y of [.75, 1.05]){
       const t = new THREE.Mesh(geo(`vtape:${profKey()}:${y}`, () => new THREE.TorusGeometry(bodyR(y) * 1.15, .025, 8, 20)), tape);
@@ -1125,13 +1163,13 @@ const BUILDERS = {
   },
   hawaii(m, parts, g){
     const mat = MM(m, 0xffffff, { map:hawaiiMap(), mapKey:'hawaii', side:THREE.DoubleSide, rough:.75 });
-    g.add(new THREE.Mesh(slice(.6, 1.2, 1.05), mat));
+    g.add(new THREE.Mesh(slice(...yRange(.6, 1.2, 'top'), slotScale('top', 1.05)), mat));
     addSleeves(parts, mat, .18);
   },
   hoodie(m, parts, g, H){
     const map = sunsetMap();
     const mat = MM(m, 0xffffff, { map, mapKey:'sunset', side:THREE.DoubleSide, rough:.75, emissive:m.glow || 0x661400, ei:.3 });
-    g.add(new THREE.Mesh(slice(.58, 1.22, 1.07), mat));
+    g.add(new THREE.Mesh(slice(...yRange(.58, 1.22, 'top'), slotScale('top', 1.07)), mat));
     addSleeves(parts, mat, .2);
     const pocket = new THREE.Mesh(geo('hpock', () => new THREE.BoxGeometry(.42, .16, .06)), mat);
     pocket.position.set(0, .72, bodyR(.72) * 1.08 + .01); g.add(pocket);
@@ -1181,7 +1219,7 @@ const BUILDERS = {
 
   joggers(m, parts, g){
     const mat = MM(m, m.c, { side:THREE.DoubleSide, rough:.8 });
-    g.add(new THREE.Mesh(slice(.22, .62, 1.05), mat));
+    g.add(new THREE.Mesh(slice(...yRange(.22, .62, 'bottom'), slotScale('bottom', 1.05)), mat));
     const cuff = geo(`jocuff:${profKey()}`, () => new THREE.TorusGeometry(bodyR(.26) * 1.08, .03, 8, 16));
     const c = new THREE.Mesh(cuff, MM(m, 0x2e3a44, { rough:.75 }));
     c.rotation.x = Math.PI / 2; c.position.y = .26; g.add(c);
