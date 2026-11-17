@@ -10,8 +10,8 @@
 //  - Patterns are fragment-shader paint (Pip's bib, Sunny's spots/whisker dots, Percy's red jaw, Nova's belly).
 //  - Parts contract unchanged: rig, body, head (invisible pivot on the torso), hatAnchor, eyeAnchor, sh±1 > arm±1,
 //    foot±1 (unit spheres scaled, so shoes still fit), tail (a Group; empty where the mockup has no tail).
-import * as THREE from './vendor/three.module.min.js?v=20261116-13';
-import { clay, gloss, shineMat, neckTorso, sstep } from './ollie-v2.js?v=20261116-13';
+import * as THREE from './vendor/three.module.min.js?v=20261116-14';
+import { clay, gloss, shineMat, neckTorso, sstep } from './ollie-v2.js?v=20261116-14';
 
 const TAU = Math.PI * 2, Zv = new THREE.Vector3(0, 0, 1);
 
@@ -545,7 +545,7 @@ export const CLOTH_FIT = {
     teeBottom: .60, teeTop: 1.20, teeScale: 1.04,
     pantBottom: .26, pantTop: .62, pantScale: 1.05, pantTrim: null,
     shoes: 'feet', shoeScale: 1,
-    hatY: .122, hatScale: 1.22,
+    hatY: .36, hatScale: 1.08,                            // raised toward the crown; lobby 72° fov was pulling the auto beanie over the eyes
     eyeY: .083, eyeZ: -.084, eyeScale: 1.18,
     wristScale: 1, handScale: 1
   },
@@ -553,18 +553,20 @@ export const CLOTH_FIT = {
     teeBottom: .60, teeTop: 1.20, teeScale: 1.04,
     pantBottom: .26, pantTop: .62, pantScale: 1.05, pantTrim: null,
     shoes: 'feet', shoeScale: 1,
-    hatY: .129, hatScale: 1.28,
+    hatY: .42, hatScale: 1.10,                            // raised toward the crown for the downward lobby camera
     eyeY: .164, eyeZ: -.098, eyeScale: 1.16,
     wristScale: 1, handScale: 1
   },
   jelly: {
-    teeBottom: .84, teeTop: 1.14, teeScale: 1.04,          // shirt on the bell, ending below the face (smile ≈1.22)
-    pantBottom: .70, pantTop: .80, pantScale: 1.18,         // underside skirt only — keep a gap under the jacket
+    teeBottom: 1.05, teeTop: 1.17, teeScale: 1.02,         // front of the upper dome, just under the face (smile ≈1.22)
+    teeArc: Math.PI * 0.80,                               // front bib (~144°); a full lathe still reads as a ring from the lobby cam
+    pantBottom: .70, pantTop: .80, pantScale: 1.18,         // underside skirt only — keep a gap under the shirt
     pantTrim: null,
-    jacketCollar: false, jacketScale: 1.02,               // skip the fat collar; tighter shell so it doesn't read as a tube
-    jacketBottom: .92, jacketTop: 1.16,                   // wrap the taper above the bulge, no overlap with the skirt
+    jacketCollar: false, jacketScale: 1.02,               // same span as the tee; no collar (a torus would read as a ring)
+    jacketBottom: 1.05, jacketTop: 1.17,
+    jacketArc: Math.PI * 0.80,
     shoes: 'hide', shoeScale: 1,                           // do not recolor the trumpet legs
-    hatY: -.10, hatScale: 1.65,                            // lower, wider cap on the bell, still above the face
+    hatY: .50, hatScale: 1.12,                            // sit on the bell top (old 1.65 beanie swallowed the bell in the lobby cam)
     eyeY: -.126, eyeZ: .18, eyeScale: [1.58, 1.10, 1.05],  // push rims in front of the bell (old eyeZ .10 was 1.5cm inside)
     wristScale: .9, handScale: .9
   },
@@ -573,7 +575,7 @@ export const CLOTH_FIT = {
     pantBottom: .26, pantTop: .62, pantScale: 1.05,
     pantTrim: 0xf4f4f4,                                    // white waist + hem so blue shorts read against the blue shell
     shoes: 'feet', shoeScale: 1,
-    hatY: -.153, hatScale: 1.14,                           // brim raised slightly above the eyes
+    hatY: .02, hatScale: 1.10,                            // slight raise; already the closest of the eight in the lobby cam
     eyeY: -.162, eyeZ: -.154, eyeScale: 1.18,
     wristScale: 1, handScale: 1
   },
@@ -581,7 +583,7 @@ export const CLOTH_FIT = {
     teeBottom: .52, teeTop: .96, teeScale: 1.04,           // default 1.20 sits on the eyes (≈1.20)
     pantBottom: .26, pantTop: .62, pantScale: 1.05, pantTrim: null,
     shoes: 'feet', shoeScale: 1,
-    hatY: .062, hatScale: 1.59,
+    hatY: .16, hatScale: 1.22,                            // was 1.59 — huge dome over the eyes in the 72° lobby cam
     eyeY: -.136, eyeZ: .21, eyeScale: [1.62, 1.15, 1.08],  // rims were flush with the snout (dZ≈0); push forward
     wristScale: 1, handScale: 1
   },
@@ -589,7 +591,7 @@ export const CLOTH_FIT = {
     teeBottom: .55, teeTop: 1.08, teeScale: 1.04,           // default 1.20 grazes the smile (≈1.22)
     pantBottom: .26, pantTop: .62, pantScale: 1.05, pantTrim: null,
     shoes: 'feet', shoeScale: 1,
-    hatY: .03, hatScale: 1.32,
+    hatY: .18, hatScale: 1.12,                            // raise and slim so the brim stays above the eyes
     eyeY: -.068, eyeZ: -.01, eyeScale: [1.48, 1.12, 1.08],
     wristScale: 1, handScale: 1
   },
@@ -597,17 +599,16 @@ export const CLOTH_FIT = {
     teeBottom: .60, teeTop: .98, teeScale: 1.04,            // default 1.20 covers the face (smile ≈1.10)
     pantBottom: .26, pantTop: .62, pantScale: 1.05, pantTrim: null,
     shoes: 'feet', shoeScale: 1,
-    hatY: .152, hatScale: .82,                             // sit on the head-top, not on the face (old brim ≈1.28)
+    hatY: .20, hatScale: .88,                             // keep the small crown-sitting cap; slight raise
     eyeY: -.141, eyeZ: -.134, eyeScale: 1.05,
     wristScale: 1, handScale: 1
   },
   giga: {
     teeBottom: .50, teeTop: .94, teeScale: 1.04,            // ends below the smile (≈1.01); face stays clear
-    pantBottom: 1.12, pantTop: 1.22, pantScale: 1.16,       // belt at the mantle crease, stood off the red mantle
-    pantTrim: 0xffe08a,                                    // warm gold rim so magma reads on the red mantle (kept thin so casual shorts don't grow hoops)
-    pantTrimR: .038,
+    pantBottom: 1.08, pantTop: 1.26, pantScale: 1.14,       // one taller belt at the mantle; no torus trim (gold hoops from the lobby cam)
+    pantTrim: null,
     shoes: 'feet', shoeScale: 1,                           // stubby legs only; never treat arm tentacles as feet
-    hatY: .687, hatScale: .90,                             // on the blunt mantle, slightly roomier than the auto 0.78
+    hatY: .78, hatScale: .70,                             // smaller cap on the tip (0.90 read as a mushroom from the lobby cam)
     eyeY: -.183, eyeZ: -.079, eyeScale: 1.12,
     wristScale: .9, handScale: .9
   }

@@ -20,7 +20,7 @@
 // Phone-cheap: low segment counts, cached shared geos/mats, no skinned meshes, no per-frame allocs,
 // no post-processing / bloom (glow is emissive + additive sprites). Matte clay look, metallic only
 // where the item asks for it. Attach to animated parts (hatAnchor, eyeAnchor, sh±1, arm±1, foot±1, rig).
-import * as THREE from './vendor/three.module.min.js?v=20261116-13';
+import * as THREE from './vendor/three.module.min.js?v=20261116-14';
 
 /* ---------------- install (bodyR so tees/pants follow the active silhouette) ---------------- */
 let _bodyR = null, _getProfile = null;
@@ -215,11 +215,14 @@ function tex(key, w, h, draw, opts = {}){
   return TEX[key] = t;
 }
 function slice(y0, y1, scale){
-  const key = `ps:${profKey()}:${y0}:${y1}:${scale}`;
+  const P = _getProfile && _getProfile();
+  const arc = P && (P.teeArc != null ? P.teeArc : P.jacketArc);
+  const phi0 = arc != null ? -arc / 2 : 0, phiL = arc != null ? arc : Math.PI * 2;
+  const key = `ps:${profKey()}:${y0}:${y1}:${scale}:${phi0}:${phiL}`;
   return geo(key, () => {
     const pts = [];
     for(let i = 0; i <= 10; i++){ const y = y0 + (y1 - y0) * i / 10; pts.push(new THREE.Vector2(bodyR(y) * scale, y)); }
-    return new THREE.LatheGeometry(pts, 24);
+    return new THREE.LatheGeometry(pts, 24, phi0, phiL);
   });
 }
 function flare(yWaist, yHem, s0, s1){

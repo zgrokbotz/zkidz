@@ -2,7 +2,7 @@
  * Usage (inside the main game):  import { openHideSeek } from './hide/hide-seek.js';
  *   openHideSeek({ ECO, S, save, artUrl, chars, seekerId, sfxOn, onWin, onExit });
  * Self-contained: own CSS (#hideSeek scope), own save key (zkidz_hide_v1), WebAudio SFX (no files), no CDNs. */
-import { ZONES, LEVELS, STORY_LEVELS, levelConfig } from './levels.js?v=20261116-13';
+import { ZONES, LEVELS, STORY_LEVELS, levelConfig } from './levels.js?v=20261116-14';
 
 /* ================= ECONOMY — approved by Zander (Zokenomics' final Hide & Seek numbers) ================= */
 export const HS_FIRST_CLEAR       = 25;   // story level, first clear: 25 + 2 per hider
@@ -45,7 +45,7 @@ function hex(c){ return typeof c==='number' ? '#'+c.toString(16).padStart(6,'0')
 function shade(h, k){ const n=parseInt(h.slice(1),16); let r=n>>16,g=n>>8&255,b=n&255; const f=k<0?0:255, p=Math.abs(k); r=Math.round(r+(f-r)*p); g=Math.round(g+(f-g)*p); b=Math.round(b+(f-b)*p); return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1); }
 function firstName(c){ return String((c&&c.name)||(c&&c.id)||'Friend').split(' the ')[0]; }
 function fmt(s){ s=Math.max(0,Math.floor(s)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
-function defaultArt(id){ if(window.__ART && window.__ART[id]) return window.__ART[id]; try{ return new URL(`../art/${id}.jpg?v=20261116-13`, import.meta.url).href; }catch(e){ return `art/${id}.jpg?v=20261116-13`; } }
+function defaultArt(id){ if(window.__ART && window.__ART[id]) return window.__ART[id]; try{ return new URL(`../art/${id}.jpg?v=20261116-14`, import.meta.url).href; }catch(e){ return `art/${id}.jpg?v=20261116-14`; } }
 const $=(s,r)=> (r||(H&&H.root)||document).querySelector(s);
 const $$=(s,r)=> [...(r||(H&&H.root)||document).querySelectorAll(s)];
 
@@ -128,7 +128,7 @@ function makeCaustics(){
 /* ================= public API ================= */
 export function openHideSeek(opts={}){
   if(H) closeHideSeek();
-  if(!document.getElementById('hideSeekCss') && !opts.noCss){ const l=document.createElement('link'); l.id='hideSeekCss'; l.rel='stylesheet'; l.href=new URL('./hide-seek.css?v=20261116-13', import.meta.url).href; document.head.appendChild(l); }
+  if(!document.getElementById('hideSeekCss') && !opts.noCss){ const l=document.createElement('link'); l.id='hideSeekCss'; l.rel='stylesheet'; l.href=new URL('./hide-seek.css?v=20261116-14', import.meta.url).href; document.head.appendChild(l); }
   const seekerId=opts.seekerId||(opts.S&&opts.S.selChar)||'ollie';
   let pool=(opts.chars||[]).filter(c=>c&&c.art!==false&&c.id);
   if(!pool.length) pool=FALLBACK_IDS.map(id=>({id, name:id[0].toUpperCase()+id.slice(1), color:'#4aa3df'}));

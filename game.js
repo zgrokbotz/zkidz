@@ -1,16 +1,16 @@
 // ZKIDZ – Ocean Maze prototype. Three.js, no build step.
-import * as THREE from './vendor/three.module.min.js?v=20261116-13';
-import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-13';
-import * as ECO from './economy.js?v=20261116-13';
-import { openReefSort } from './sort/reef-sort.js?v=20261116-13';
-import { openReefDiner } from './dash/dash.js?v=20261116-13';
-import { openHideSeek } from './hide/hide-seek.js?v=20261116-13';
-import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-13';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-13';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-13';
-import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-13';
-import * as LB from './lb.js?v=20261116-13';
-import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261116-13';
+import * as THREE from './vendor/three.module.min.js?v=20261116-14';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261116-14';
+import * as ECO from './economy.js?v=20261116-14';
+import { openReefSort } from './sort/reef-sort.js?v=20261116-14';
+import { openReefDiner } from './dash/dash.js?v=20261116-14';
+import { openHideSeek } from './hide/hide-seek.js?v=20261116-14';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261116-14';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261116-14';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261116-14';
+import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261116-14';
+import * as LB from './lb.js?v=20261116-14';
+import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261116-14';
 
 /* ===================== DATA ===================== */
 const RARITIES = [
@@ -165,7 +165,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261116-13';
+const ASSET_V = '20261116-14';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -297,7 +297,7 @@ const OLLIE_PROFILE = (()=>{ const pts=[[0,.06],[.3,.08],[.45,.16],[.53,.34],[.5
   const curve=new THREE.SplineCurve(pts.map(([r,y])=>new THREE.Vector2(r,y))); return curve.getPoints(60).map(p=>new THREE.Vector2(Math.max(0,p.x),p.y)); })();
 let ACTIVE_PROFILE = OLLIE_PROFILES.C;
 function bodyR(y){ const P=ACTIVE_PROFILE||OLLIE_PROFILE; for(let i=1;i<P.length;i++){ if(P[i].y>=y){ const a=P[i-1],b=P[i]; const t=(y-a.y)/((b.y-a.y)||1); return a.x+(b.x-a.x)*t; } } return 0; }
-function profileSlice(y0,y1,scale=1.05){ const pts=[]; for(let i=0;i<=16;i++){ const y=y0+(y1-y0)*i/16; pts.push(new THREE.Vector2(bodyR(y)*scale,y)); } return new THREE.LatheGeometry(pts,48); }
+function profileSlice(y0,y1,scale=1.05,phiStart,phiLength){ const pts=[]; for(let i=0;i<=16;i++){ const y=y0+(y1-y0)*i/16; pts.push(new THREE.Vector2(bodyR(y)*scale,y)); } return new THREE.LatheGeometry(pts,48,phiStart||0,phiLength!=null?phiLength:Math.PI*2); }
 const OLLIE_GEO = {};
 function ollieGeos(){ if(OLLIE_GEO.body) return OLLIE_GEO;
   OLLIE_GEO.body = new THREE.LatheGeometry(OLLIE_PROFILE, 64);
@@ -454,7 +454,8 @@ function addEquipmentOriginal(g, parts, eq){
             :((ACTIVE_PROFILE&&ACTIVE_PROFILE.teeTop)!=null?ACTIVE_PROFILE.teeTop:1.2);
       const sc=isJ?((ACTIVE_PROFILE&&ACTIVE_PROFILE.jacketScale)!=null?ACTIVE_PROFILE.jacketScale:1.07)
             :((ACTIVE_PROFILE&&ACTIVE_PROFILE.teeScale)!=null?ACTIVE_PROFILE.teeScale:1.04);
-      const t=new THREE.Mesh(profileSlice(y0,y1,sc), MM(m.c)); t.material.side=THREE.DoubleSide; g.add(t);
+      const arc=isJ?((ACTIVE_PROFILE&&ACTIVE_PROFILE.jacketArc)!=null?ACTIVE_PROFILE.jacketArc:null):((ACTIVE_PROFILE&&ACTIVE_PROFILE.teeArc)!=null?ACTIVE_PROFILE.teeArc:null);
+      const t=new THREE.Mesh(profileSlice(y0,y1,sc,arc!=null?(-arc/2):0,arc!=null?arc:Math.PI*2), MM(m.c)); t.material.side=THREE.DoubleSide; g.add(t);
       for(const s of [-1,1]){ const sl=new THREE.Mesh(new THREE.CylinderGeometry(.155,.15,.16,20,1,true), MM(m.c)); sl.material.side=THREE.DoubleSide; sl.position.set(.03*s,-.08,0); sl.rotation.z=.12*s; parts['sh'+s].add(sl); }
       if(m.type==='jacket'){
         if(!(ACTIVE_PROFILE&&ACTIVE_PROFILE.jacketCollar===false)){
