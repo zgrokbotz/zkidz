@@ -5,6 +5,7 @@
  * Own save key: zkidz_bubble_v1. Leaderboard mode: 'bubble' (endless pops). */
 import { INK, clamp, rand, pick, firstName, injectCss, loadSave, writeSave, makeSfx, creditStarfish, payHtml, chestHtml, starsHtml, showModal, hideModal, toast, confetti, topBar, charMap, artSrc } from '../mini/mini.js?v=20261124-3';
 import { STORY_LEVELS, COLS, DANGER_ROW, levelConfig, ENDLESS, shapeHas } from './levels.js?v=20261124-3';
+import { drawBgSwim } from '../bgswim/bgswim.js?v=20261124-5';
 
 /* ================= ECONOMY — APPROVED by Zander (Zokenomics' Bubble Pop numbers) ================= */
 export const BP_FIRST_CLEAR       = 36;  // first time you clear a story level
@@ -58,7 +59,7 @@ export function openBubble(opts={}){
     <div class="zm-modal hidden"></div><div class="zm-toast"></div>`;
   document.body.appendChild(root);
   H={ opts, root, P:loadP(), cmap:charMap(opts), muted:false, screen:'menu', raf:0, last:performance.now(), t:0,
-      cv:root.querySelector('.bp-cv'), cx:null, vw:800, vh:600, dpr:1, run:null, fx:[], drift:[], aim:-Math.PI/2, aiming:false };
+      cv:root.querySelector('.bp-cv'), cx:null, vw:800, vh:600, dpr:1, run:null, fx:[], drift:[], weeds:[], weedKey:'', aim:-Math.PI/2, aiming:false, reduceMotion:matchMedia('(prefers-reduced-motion: reduce)').matches };
   H.cx=H.cv.getContext('2d');
   H.sfx=makeSfx(()=>!H.muted && (typeof opts.sfxOn==='function' ? opts.sfxOn() : !(opts.S && opts.S.music===false)));
   root.addEventListener('pointerdown', ()=>H&&H.sfx.unlock(), {passive:true, capture:true});
@@ -74,7 +75,7 @@ export function openBubble(opts={}){
   try{ document.fonts && document.fonts.load(`20px 'Lilita One'`); }catch(e){}
   seedDrift(); fit(); refreshCoins(); toMenu();
   H.raf=requestAnimationFrame(loop);
-  window.__bubblePop={ _owned:true, get H(){ return H; }, startLevel, startEndless, fire, swap, winNow, loseNow, finishNow,
+  window.__bubblePop={ _owned:true, get H(){ return H; }, startLevel, startEndless, fire, swap, winNow, loseNow, finishNow, poseAim,
     bpStoryPay, bpEndlessPay, bpStars, bpBudget, bpScore,
     consts:{ BP_FIRST_CLEAR, BP_REPLAY, BP_THREE_STAR_BONUS, BP_ENDLESS_PER_WAVE, BP_ENDLESS_CAP, BP_WIN_MIN_SECONDS, BP_WIN_MIN_WAVES, STORY_LEVELS, COLS, DANGER_ROW } };
   return { close:closeBubble };
@@ -83,6 +84,7 @@ export function closeBubble(){
   if(!H) return;
   cancelAnimationFrame(H.raf); removeEventListener('keydown', H._key); removeEventListener('resize', H._rs);
   if(window.visualViewport) visualViewport.removeEventListener('resize', H._rs);
+  disposeBpFig();
   if(H.root.parentNode) H.root.parentNode.removeChild(H.root);
   if(window.__bubblePop && window.__bubblePop._owned) window.__bubblePop=null;
   H=null;
@@ -427,12 +429,19 @@ function fit(){
   const ox=(w-COLS*2*R)/2+R, oy=topMin+R+slack*0.72;
   const sx=w/2, sy=oy+(DANGER_ROW+1.15)*R*SQRT3, sand=oy+DANGER_ROW*R*SQRT3;
   H.lay={ R, ox, oy, sx, sy, left:ox-R, right:ox-R+COLS*2*R, ceil:oy-R, sand, top:topMin, bot:botMin };
-  placeHud();
+  placeHud(); placeBpFig(); seedWeeds();
 }
 function placeHud(){
   const el=H&&H.root&&$('.bp-hud2'), L=H&&H.lay; if(!el||!L) return;
   const pad=8, w=el.offsetWidth||120; let x=L.sx+L.R*2.5; if(x+w>H.vw-pad) x=Math.max(pad, L.sx-L.R*2.5-w);
   el.style.left=x+'px'; el.style.top=(L.sy-L.R*1.05)+'px'; el.style.right='auto'; el.style.bottom='auto'; el.style.transform='none';
+  const help=$('.bp-help');
+  if(help){
+    // keep the tip out of the board, the aim line, and the shooter figure
+    if(L.left>200){ help.style.left=(L.left*.5)+'px'; help.style.bottom='auto'; help.style.top=Math.max(10,(L.top||70)+6)+'px'; help.style.transform='translateX(-50%)'; }
+    else if(H.vh-L.sand<160){ help.style.left='50%'; help.style.bottom='auto'; help.style.top=(L.sand-48)+'px'; help.style.transform='translateX(-50%)'; }
+    else { help.style.left='50%'; help.style.top='auto'; help.style.bottom=''; help.style.transform='translateX(-50%)'; }
+  }
 }
 function readSafe(side){ const v=getComputedStyle(H.root).getPropertyValue('padding-'+side) || getComputedStyle(document.documentElement).getPropertyValue('--safe') || '0'; const n=parseFloat(v); return isFinite(n)?n:0; }
 function seedDrift(){ H.drift=Array.from({length:18},()=>({ x:rand(0,1), y:rand(0,1), r:rand(4,14), v:rand(.04,.12), a:rand(0,6) })); }
@@ -451,12 +460,15 @@ function draw(){
   const g=cx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#7fe0ff'); g.addColorStop(.55,'#1a7ad4'); g.addColorStop(1,'#0b4a96');
   cx.fillStyle=g; cx.fillRect(0,0,w,h);
   H.drift.forEach(b=>{ const x=b.x*w, y=b.y*h, r=b.r; cx.beginPath(); cx.arc(x,y,r,0,7); cx.strokeStyle='rgba(255,255,255,.45)'; cx.lineWidth=2; cx.stroke(); cx.fillStyle='rgba(220,245,255,.18)'; cx.fill(); cx.beginPath(); cx.arc(x-r*.3,y-r*.3,r*.22,0,7); cx.fillStyle='rgba(255,255,255,.5)'; cx.fill(); });
+  // other characters swimming behind the board (and behind the sand / seaweed)
+  try{ drawBgSwim(cx,w,h,H.t,{ mode: H.screen==='play'?'bubble':'bubble-menu', y0:.10, y1: Math.max(.18, (L.sand/h)-.04), kit:H.opts&&H.opts.kit, S:H.opts&&H.opts.S }); }catch(e){}
   // sand
   cx.fillStyle='#e2b475'; cx.beginPath(); cx.moveTo(0,L.sand+L.R*.4); cx.quadraticCurveTo(w*.25,L.sand-L.R*.2,w*.5,L.sand+L.R*.15); cx.quadraticCurveTo(w*.75,L.sand+L.R*.5,w,L.sand); cx.lineTo(w,h); cx.lineTo(0,h); cx.fill();
   cx.fillStyle='#16163a'; cx.fillRect(0,L.sand,w,4);
-  // danger line
+  drawSeaweed(cx);
+  // danger line (above seaweed; play area stays clear)
   cx.save(); cx.setLineDash([8,8]); cx.strokeStyle='rgba(255,80,80,.85)'; cx.lineWidth=3; cx.beginPath(); cx.moveTo(L.left,L.sand); cx.lineTo(L.right,L.sand); cx.stroke(); cx.restore();
-  if(H.screen!=='play'||!H.run){ drawIdleBubbles(); return; }
+  if(H.screen!=='play'||!H.run){ drawIdleBubbles(); hideBpFig(); return; }
   // ceiling bar
   const cy=L.oy-L.R+(H.run.shift*L.R*SQRT3);
   cx.fillStyle='#16325a'; cx.strokeStyle=INK; cx.lineWidth=4; roundRect(cx, L.left-6, cy-14, L.right-L.left+12, 18, 8); cx.fill(); cx.stroke();
@@ -468,6 +480,7 @@ function draw(){
   // fx
   H.fx.forEach(p=>{ if(p.delay>0) return; const k=1-p.t/p.life; if(p.typ==='pop') bubble(cx,p.x,p.y,L.R*Math.max(.1,1-p.t/p.life),p.col,k); else if(p.typ==='fall') bubble(cx,p.x,p.y,L.R,p.col,k); else { cx.globalAlpha=k; cx.fillStyle=COLORS[p.col]||'#fff'; cx.beginPath(); cx.arc(p.x,p.y,L.R*.18,0,7); cx.fill(); cx.globalAlpha=1; } });
   drawShooter(cx);
+  syncBpFig();
 }
 function drawIdleBubbles(){ const L=H.lay; for(let i=0;i<8;i++){ const x=L.ox+(i%9)*L.R*2, y=L.oy+Math.sin(H.t*.7+i)*.4*L.R+L.R*1.2; if(i<COLS) bubble(H.cx,x,y,L.R*.85,i%COLORS.length,.9); } }
 function drawAim(cx){
@@ -503,3 +516,204 @@ function bubble(cx,x,y,R,col,alpha=1){
   cx.restore();
 }
 function roundRect(cx,x,y,w,h,r){ if(cx.roundRect){ cx.beginPath(); cx.roundRect(x,y,w,h,r); return; } const m=Math.min(w,h)/2; r=Math.min(r,m); cx.beginPath(); cx.moveTo(x+r,y); cx.arcTo(x+w,y,x+w,y+h,r); cx.arcTo(x+w,y+h,x,y+h,r); cx.arcTo(x,y+h,x,y,r); cx.arcTo(x,y,x+w,y,r); cx.closePath(); }
+
+function poseAim(a){ if(!H||!H.run) return; H.aim=clampAim(a); H.aiming=true; syncBpFig(true); }
+
+/* ================= decorative seaweed (visual only; no collision) ================= */
+function weedLayoutKey(){ const L=H.lay; return L?[H.vw|0,H.vh|0,L.left|0,L.right|0,L.sand|0].join('|'):''; }
+function seedWeeds(){
+  if(!H||!H.lay) return; const key=weedLayoutKey(); if(H.weedKey===key && H.weeds.length) return;
+  const L=H.lay, w=H.vw, h=H.vh, rnd=rng((w*13^h*7^L.left*31^L.sand*17)|0);
+  const weeds=[], pal=3;
+  const plant=(x0,x1,base,hMin,hMax,n)=>{
+    if(x1-x0<8||n<=0) return;
+    for(let i=0;i<n;i++){
+      const u=(i+.35+rnd()*.3)/n, x=x0+(x1-x0)*u;
+      weeds.push({ x, base, h:hMin+(hMax-hMin)*rnd(), tw:6+rnd()*12, ph:rnd()*6, col:(rnd()*pal)|0, blades:1+(rnd()>.45?1:0) });
+    }
+  };
+  const keep=L.R*3.4;
+  // short tufts on the sand, left and right of the shooter — stay below the sand line
+  const sandH=Math.max(16, h-L.sand-4);
+  plant(8, L.sx-keep, h, sandH*.45, sandH*.95, 4);
+  plant(L.sx+keep, w-8, h, sandH*.45, sandH*.95, 4);
+  // tall kelp in the side margins, outside the play field
+  const topCap=h-(L.top||70)-8;
+  if(L.left>22) plant(8, L.left-6, h, Math.min(topCap, h*0.28), Math.min(topCap, h*0.62), Math.max(3, Math.round((L.left-8)/20)));
+  if(w-L.right>22) plant(L.right+6, w-8, h, Math.min(topCap, h*0.28), Math.min(topCap, h*0.62), Math.max(3, Math.round((w-L.right-8)/20)));
+  H.weeds=weeds; H.weedKey=key;
+}
+function drawSeaweed(cx){
+  if(!H||!H.weeds||!H.weeds.length) return;
+  const t=H.reduceMotion?0:H.t, L=H.lay, sand=L?L.sand:H.vh;
+  for(const k of H.weeds){
+    const sway=H.reduceMotion?0:Math.sin(t*1.05+k.ph)*k.tw*.55;
+    // clip tips so they never cross into the bubble grid
+    const maxH=k.x<(L.left-2)||k.x>(L.right+2) ? k.h : Math.min(k.h, Math.max(8, k.base-sand-2));
+    if(maxH<8) continue;
+    frond(cx, k.x, k.base, maxH, k.tw, sway, k.col, k.blades);
+  }
+}
+function frond(cx, x, base, h, tw, sway, col, blades){
+  const pal=[[['#1a6a36','#2fb33a','#8cf26a'],['#176a38','#3cae3c','#b8f08a']],[['#0e5c48','#1fa36a','#8cf2b0'],['#148a60','#2bb88a','#b6f5d4']],[['#1a5a28','#3cae3c','#c4ef6a'],['#2e8b3a','#5bbe4a','#d4f59a']]][col||0];
+  for(let b=0;b<blades;b++){
+    const s=sway*(b?-.6:1), w=Math.max(10, tw*(b?.75:1.15)), hh=h*(b?.8:1), ox=x+(b?tw*.5:-tw*.12);
+    const mid=ox+s*.55, tip=ox+s, yMid=base-hh*.52, y2=base-hh;
+    cx.beginPath();
+    cx.moveTo(ox-w*.6, base);
+    cx.bezierCurveTo(ox-w*.15, base-hh*.28, mid-w*.55, yMid, tip-w*.22, y2);
+    cx.quadraticCurveTo(tip, y2-w*.4, tip+w*.22, y2);
+    cx.bezierCurveTo(mid+w*.55, yMid, ox+w*.15, base-hh*.28, ox+w*.6, base);
+    cx.closePath();
+    const g=cx.createLinearGradient(ox, base, tip, y2);
+    g.addColorStop(0, pal[b%2][0]); g.addColorStop(.55, pal[b%2][1]); g.addColorStop(1, pal[b%2][2]);
+    cx.fillStyle=g; cx.strokeStyle=INK; cx.lineWidth=Math.max(2.2, w*.14); cx.lineJoin='round'; cx.lineCap='round';
+    cx.fill(); cx.stroke();
+  }
+}
+
+/* ================= shooter buddy (2D snapshot of the current player) ================= */
+const bpFig={ el:null, ctx:null, src:null, ink:null, img:null, scene:null, char:null, cam:null, rt:null, buf:null,
+  key:'', lastAim:NaN, w:0, h:0, dirty:true, side:'left',
+  v:null, v2:null, v3:null, box:null, col:null, vp:null, base:null, look:null };
+function kit3(){ return H&&H.opts&&H.opts.kit; }
+function bpLookKey(){ const S=H&&H.opts&&H.opts.S||{}; const eq=S.equipped||{}; return (S.selChar||'ollie')+'|'+Object.keys(eq).sort().map(s=>s+':'+(eq[s]||'')).join(','); }
+function figWanted(){ return !!(H && H.screen==='play' && H.run && !H.run.ended && kit3() && kit3().renderer && kit3().THREE && kit3().buildChar); }
+function hideBpFig(){ if(bpFig.el) bpFig.el.classList.remove('on'); }
+function disposeBpFig(){
+  hideBpFig();
+  if(bpFig.char && bpFig.char.parent) bpFig.char.parent.remove(bpFig.char);
+  if(bpFig.rt){ try{ bpFig.rt.dispose(); }catch(e){} }
+  if(bpFig.el && bpFig.el.parentNode) bpFig.el.parentNode.removeChild(bpFig.el);
+  bpFig.el=bpFig.ctx=bpFig.src=bpFig.ink=bpFig.img=bpFig.scene=bpFig.char=bpFig.cam=bpFig.rt=bpFig.buf=null;
+  bpFig.key=''; bpFig.lastAim=NaN; bpFig.dirty=true;
+}
+function ensureBpFig(){
+  if(bpFig.el) return; const kit=kit3(); if(!kit) return;
+  const THREE=kit.THREE;
+  const el=document.createElement('canvas'); el.className='bp-fig'; el.setAttribute('aria-hidden','true');
+  H.root.appendChild(el);
+  bpFig.el=el; bpFig.ctx=el.getContext('2d');
+  bpFig.src=document.createElement('canvas'); bpFig.ink=document.createElement('canvas');
+  const sc=new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x6a7aa8, 1.55));
+  const d=new THREE.DirectionalLight(0xffffff, 2.15); d.position.set(2.4,5,6); sc.add(d);
+  const f=new THREE.DirectionalLight(0x9fd8ff, .85); f.position.set(-4,2,-3); sc.add(f);
+  bpFig.scene=sc; bpFig.cam=new THREE.PerspectiveCamera(30, .8, .05, 40);
+  bpFig.v=new THREE.Vector3(); bpFig.v2=new THREE.Vector3(); bpFig.v3=new THREE.Vector3();
+  bpFig.box=new THREE.Box3(); bpFig.col=new THREE.Color(); bpFig.vp=new THREE.Vector4();
+  bpFig.base=new THREE.Vector3(); bpFig.look=new THREE.Vector3();
+}
+function syncBpChar(){
+  const kit=kit3(), key=bpLookKey(); if(!kit) return;
+  if(bpFig.char && bpFig.key===key) return;
+  if(bpFig.char && bpFig.char.parent) bpFig.char.parent.remove(bpFig.char);
+  const S=H.opts.S||{}, id=S.selChar||'ollie';
+  const o=kit.buildChar(id);
+  o.userData.baseY=0; o.position.set(0,0,0); o.rotation.set(0,0,0);
+  bpFig.scene.add(o); bpFig.char=o; bpFig.key=key; bpFig.dirty=true;
+  frameBpCam();
+  bpFig.base.copy(o.position);
+}
+function frameBpCam(){
+  const o=bpFig.char, cam=bpFig.cam, THREE=kit3().THREE; if(!o||!cam) return;
+  const side=bpFig.side==='right'?1:-1;
+  o.position.copy(bpFig.base||{x:0,y:0,z:0}); o.rotation.set(0, .28*side, 0);
+  o.updateMatrixWorld(true);
+  const box=bpFig.box.setFromObject(o); if(box.isEmpty()) return;
+  const c=box.getCenter(bpFig.v), sz=box.getSize(bpFig.v2);
+  const look=bpFig.look.copy(c); look.y+=sz.y*.02;
+  const r=Math.max(sz.x,sz.y,sz.z)*1.02+.16;
+  const dir=bpFig.v3.set(-.1*side, .18, 1).normalize();
+  cam.aspect=(bpFig.w||160)/(bpFig.h||200);
+  cam.fov=30; cam.position.copy(look).addScaledVector(dir, r/Math.sin(THREE.MathUtils.degToRad(15)));
+  cam.lookAt(look); cam.updateProjectionMatrix();
+}
+function poseBpBuddy(aim){
+  const o=bpFig.char; if(!o) return;
+  const p=o.userData.parts||{}, side=bpFig.side==='right'?1:-1;
+  // 0 = straight up, -1 = left, +1 = right
+  const span=Math.PI/2-AIM_PAD, t=clamp((aim+Math.PI/2)/span, -1, 1);
+  o.position.copy(bpFig.base); o.rotation.set(0, .28*side, 0);
+  if(p.rig){ p.rig.position.y=0; p.rig.rotation.set(.08, t*.12, -t*.2); p.rig.quaternion.setFromEuler(p.rig.rotation); }
+  if(p.head){ p.head.rotation.set(-.12, t*.45, -t*.08); p.head.quaternion.setFromEuler(p.head.rotation); }
+  // the inward arm (toward the shooter) follows the aim; the far arm stays casual
+  const inn=side<0?'sh1':'sh-1', out=side<0?'sh-1':'sh1';
+  const innA=side<0?'arm1':'arm-1', outA=side<0?'arm-1':'arm1';
+  if(p[outA]) p[outA].rotation.set(0,0,0);
+  if(p[innA]) p[innA].rotation.set(0,0,0);
+  if(p[out]){ p[out].rotation.set(-.2, 0, -.28*side); p[out].quaternion.setFromEuler(p[out].rotation); }
+  if(p[inn]){
+    // inward arm follows the aim (t: -1 left, 0 up, +1 right)
+    p[inn].rotation.set(-.55-t*.7*side, .08*side, (1.2+t*.55*side)*side);
+    p[inn].quaternion.setFromEuler(p[inn].rotation);
+  }
+  o.updateMatrixWorld(true);
+}
+function blitBpFig(){
+  const kit=kit3(), w=bpFig.w, h=bpFig.h; if(!kit||!w||!h) return;
+  const THREE=kit.THREE, renderer=kit.renderer;
+  if(!bpFig.rt || bpFig.rt.width!==w || bpFig.rt.height!==h){
+    if(bpFig.rt) bpFig.rt.dispose();
+    bpFig.rt=new THREE.WebGLRenderTarget(w,h,{ depthBuffer:true });
+    try{ if(bpFig.rt.texture) bpFig.rt.texture.colorSpace=THREE.SRGBColorSpace; }catch(e){}
+    bpFig.buf=new Uint8Array(w*h*4);
+  }
+  if(bpFig.src.width!==w){ bpFig.src.width=w; bpFig.src.height=h; }
+  if(bpFig.ink.width!==w){ bpFig.ink.width=w; bpFig.ink.height=h; }
+  const prevRT=renderer.getRenderTarget();
+  renderer.getClearColor(bpFig.col); const prevA=renderer.getClearAlpha();
+  renderer.getViewport(bpFig.vp);
+  renderer.setClearColor(0x000000, 0);
+  renderer.setRenderTarget(bpFig.rt); renderer.setViewport(0,0,w,h); renderer.clear();
+  renderer.render(bpFig.scene, bpFig.cam);
+  renderer.readRenderTargetPixels(bpFig.rt, 0, 0, w, h, bpFig.buf);
+  renderer.setRenderTarget(prevRT); renderer.setClearColor(bpFig.col, prevA); renderer.setViewport(bpFig.vp);
+  const sctx=bpFig.src.getContext('2d');
+  let img=bpFig.img; if(!img||img.width!==w||img.height!==h){ img=sctx.createImageData(w,h); bpFig.img=img; }
+  for(let y=0;y<h;y++) img.data.set(bpFig.buf.subarray((h-1-y)*w*4,(h-y)*w*4), y*w*4);
+  sctx.putImageData(img,0,0);
+  const ictx=bpFig.ink.getContext('2d'); ictx.clearRect(0,0,w,h);
+  const o=Math.max(2, Math.round(Math.min(w,h)/64));
+  for(let i=0;i<8;i++){ const a=i*Math.PI/4; ictx.drawImage(bpFig.src, Math.round(Math.cos(a)*o), Math.round(Math.sin(a)*o)); }
+  ictx.globalCompositeOperation='source-in'; ictx.fillStyle='#16163a'; ictx.fillRect(0,0,w,h); ictx.globalCompositeOperation='source-over';
+  const ctx=bpFig.ctx; ctx.clearRect(0,0,w,h); ctx.drawImage(bpFig.ink,0,0); ctx.drawImage(bpFig.src,0,0);
+}
+function placeBpFig(){
+  if(!figWanted()){ hideBpFig(); return; }
+  ensureBpFig(); if(!bpFig.el) return;
+  const L=H.lay, hud=$('.bp-hud2');
+  let side='left';
+  if(hud && !hud.classList.contains('hidden')){
+    const hr=hud.getBoundingClientRect(), rr=H.root.getBoundingClientRect();
+    if((hr.left+hr.width/2) < rr.left+L.sx) side='right';
+  }
+  if(side!==bpFig.side){ bpFig.side=side; bpFig.dirty=true; }
+  // sit fully on the sand, under the danger line, so the aim line and board stay clear
+  const band=Math.max(72, H.vh-L.sand+12), ratio=1.22;
+  const css=clamp(Math.min(L.R*5.2, band/ratio), 64, 150);
+  const fw=css, fh=Math.min(css*ratio, band);
+  let left=side==='left' ? L.sx-L.R*1.45-fw : L.sx+L.R*1.45;
+  left=clamp(left, 2, H.vw-fw-2);
+  let top=L.sy+L.R*.8-fh;
+  top=clamp(top, L.sand-Math.min(16, fh*.12), H.vh-fh-2);
+  const el=bpFig.el;
+  el.style.left=left+'px'; el.style.top=top+'px'; el.style.width=fw+'px'; el.style.height=fh+'px';
+  const dpr=Math.min(2, H.dpr||window.devicePixelRatio||1);
+  let w=Math.max(8, Math.round(fw*dpr)), h=Math.max(8, Math.round(fh*dpr));
+  const cap=220; if(w>cap){ h=Math.round(h*cap/w); w=cap; } if(h>cap){ w=Math.round(w*cap/h); h=cap; }
+  if(el.width!==w||el.height!==h){ el.width=w; el.height=h; bpFig.w=w; bpFig.h=h; bpFig.dirty=true; }
+  else { bpFig.w=w; bpFig.h=h; }
+}
+function syncBpFig(force){
+  if(!figWanted()){ hideBpFig(); return; }
+  try{
+    ensureBpFig(); placeBpFig(); syncBpChar();
+    const aim=H.aim;
+    if(!force && !bpFig.dirty && bpFig.lastAim===aim && bpFig.el.classList.contains('on')) return;
+    if(bpFig.cam && bpFig.cam.aspect!==(bpFig.w/(bpFig.h||1))) frameBpCam();
+    poseBpBuddy(aim); blitBpFig();
+    bpFig.lastAim=aim; bpFig.dirty=false; bpFig.el.classList.add('on');
+  }catch(e){ console.warn('bubble fig failed', e); hideBpFig(); }
+}
+
