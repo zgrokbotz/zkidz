@@ -3,8 +3,8 @@
  *   import { openBubble } from './bubble/bubble.js';
  *   openBubble({ ECO, S, save, artUrl, chars, kit, sfxOn, onWin, onExit, lb });
  * Own save key: zkidz_bubble_v1. Leaderboard mode: 'bubble' (endless pops). */
-import { INK, clamp, rand, pick, firstName, injectCss, loadSave, writeSave, makeSfx, creditStarfish, payHtml, chestHtml, starsHtml, showModal, hideModal, toast, confetti, topBar, charMap, artSrc } from '../mini/mini.js?v=20261124-2';
-import { STORY_LEVELS, COLS, DANGER_ROW, levelConfig, ENDLESS, shapeHas } from './levels.js?v=20261124-2';
+import { INK, clamp, rand, pick, firstName, injectCss, loadSave, writeSave, makeSfx, creditStarfish, payHtml, chestHtml, starsHtml, showModal, hideModal, toast, confetti, topBar, charMap, artSrc } from '../mini/mini.js?v=20261124-3';
+import { STORY_LEVELS, COLS, DANGER_ROW, levelConfig, ENDLESS, shapeHas } from './levels.js?v=20261124-3';
 
 /* ================= ECONOMY — APPROVED by Zander (Zokenomics' Bubble Pop numbers) ================= */
 export const BP_FIRST_CLEAR       = 36;  // first time you clear a story level

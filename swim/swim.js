@@ -4,7 +4,7 @@
  *   import { openSwim } from './swim/swim.js';
  *   openSwim({ ECO, S, save, artUrl, chars, kit, sfxOn, onWin, onExit, lb });
  * Own save key: zkidz_swim_v1. Leaderboard mode: 'swim' (best distance, metres). */
-import { clamp, rand, pick, firstName, injectCss, loadSave, writeSave, makeSfx, creditStarfish, payHtml, chestHtml, showModal, hideModal, toast, confetti, topBar, charMap, artSrc } from '../mini/mini.js?v=20261124-2';
+import { clamp, rand, pick, firstName, injectCss, loadSave, writeSave, makeSfx, creditStarfish, payHtml, chestHtml, showModal, hideModal, toast, confetti, topBar, charMap, artSrc } from '../mini/mini.js?v=20261124-3';
 
 /* ================= ECONOMY — APPROVED by Zander (Zokenomics' Endless Swimmer numbers) ================= */
 export const SW_PICKUPS_PER_STARFISH = 2;    // every 2 starfish picked up = 1 Starfish

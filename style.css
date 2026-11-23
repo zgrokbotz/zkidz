@@ -96,6 +96,13 @@ button{font-family:var(--font);cursor:pointer;border:none;color:#fff}
 @keyframes pop{0%{transform:translate(-50%,-50%) scale(2.2);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 body.touch .hint{display:none}
 body:not(.touch) #joy{opacity:.35;pointer-events:none}
+/* Zinigames: 2D full-body player beside the touch joystick; never intercepts taps */
+#joyFig{position:absolute;left:calc(var(--u)*1);bottom:calc(var(--u)*1);width:calc(var(--u)*52);height:calc(var(--u)*40);pointer-events:none!important;z-index:3;display:none}
+body.touch #hud:not(.hidden) #joyFig{display:block}
+body:not(.touch) #joyFig{display:none!important}
+@media (max-height:500px){
+  #joyFig{left:calc(var(--u)*1);bottom:calc(var(--u)*.5);width:calc(var(--u)*36);height:calc(var(--u)*28)}
+}
 /* CARDS */
 #cards{background:radial-gradient(ellipse at 50% 0%,#38b6ff,#0b4fa8 70%);pointer-events:auto;display:flex;flex-direction:column;align-items:center}
 .cards-top{display:flex;gap:calc(var(--u)*2);align-items:center;padding:calc(var(--u)*1.5)}

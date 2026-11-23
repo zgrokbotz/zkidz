@@ -1,19 +1,19 @@
 // ZKIDZ – Ocean Maze prototype. Three.js, no build step.
-import * as THREE from './vendor/three.module.min.js?v=20261124-2';
-import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261124-2';
-import * as ECO from './economy.js?v=20261124-2';
-import { openReefSort } from './sort/reef-sort.js?v=20261124-2';
-import { openReefDiner } from './dash/dash.js?v=20261124-2';
-import { openHideSeek } from './hide/hide-seek.js?v=20261124-2';
-import { openSpeller } from './speller/speller.js?v=20261124-2';
-import { openSwim } from './swim/swim.js?v=20261124-2';
-import { openBubble } from './bubble/bubble.js?v=20261124-2';
-import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261124-2';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261124-2';
-import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261124-2';
-import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261124-2';
-import * as LB from './lb.js?v=20261124-2';
-import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261124-2';
+import * as THREE from './vendor/three.module.min.js?v=20261124-3';
+import { mergeGeometries } from './vendor/addons/utils/BufferGeometryUtils.js?v=20261124-3';
+import * as ECO from './economy.js?v=20261124-3';
+import { openReefSort } from './sort/reef-sort.js?v=20261124-3';
+import { openReefDiner } from './dash/dash.js?v=20261124-3';
+import { openHideSeek } from './hide/hide-seek.js?v=20261124-3';
+import { openSpeller } from './speller/speller.js?v=20261124-3';
+import { openSwim } from './swim/swim.js?v=20261124-3';
+import { openBubble } from './bubble/bubble.js?v=20261124-3';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261124-3';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261124-3';
+import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261124-3';
+import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261124-3';
+import * as LB from './lb.js?v=20261124-3';
+import { ITEMS_V2, wrapAddEquipment, installAccessoriesV2, tickAccessories, applyLegacyFraming, outfitMotionPad, HEAVENLY_EQ, LAVA_EQ } from './accessories-v2.js?v=20261124-3';
 
 /* ===================== DATA ===================== */
 const RARITIES = [
@@ -168,7 +168,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261124-2';
+const ASSET_V = '20261124-3';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -268,7 +268,7 @@ function showWebglRecover(){ let el=document.getElementById('webglRecover'); if(
 canvas.addEventListener('webglcontextlost', ev=>{ ev.preventDefault(); showWebglRecover(); });
 canvas.addEventListener('webglcontextrestored', ()=>{ location.reload(); });
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 160);
-function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov = w<h?72:55; camera.updateProjectionMatrix(); updateViewOffset(); invalidateLobbyFrame(); }
+function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.fov = w<h?72:55; camera.updateProjectionMatrix(); updateViewOffset(); invalidateLobbyFrame(); if(typeof joyFigResize==='function') joyFigResize(); }
 addEventListener('resize', resize);
 
 function mat(color, o={}){ return new THREE.MeshStandardMaterial({ color, roughness:o.rough??0.55, metalness:o.metal??0, emissive:o.emissive??0x000000, emissiveIntensity:o.ei??1, transparent:!!o.opacity, opacity:o.opacity??1 }); }
@@ -821,14 +821,15 @@ function beginRun(label){
   $('#hudCoins').textContent='000'; $('#hudTimer').textContent='00:00'; updateInfo();
   if(G.mode==='maze'){ centerMsg(label); setTimeout(()=>centerMsg(''),1300); G.running=true; } 
   if(isTouch){ $('#hint').style.display='none'; }
-  for(const k in keys) keys[k]=false; joy.x=joy.y=0;
+  for(const k in keys) keys[k]=false; joy.x=joy.y=0; if(knob) knob.style.transform='';
   resize();
+  showJoyFig();
 }
 function hudCount(){ $('#hudCoins').textContent=String(G.collected).padStart(3,'0'); } // economy v2: no bag cap, every starfish counts
 function updateInfo(){ const el=$('#hudInfo'); if(G.mode==='maze') el.innerHTML=`Find the treasure chest! 🎁  ${G.collected}/${G.coins.length} ${STAR}`; else if(G.mode==='race') el.textContent=`Checkpoint ${Math.min(G.cpIdx+1,NCP)}/${NCP} · Lap ${G.lap}/${LAPS}` + (S.ghost?' · beat your ghost! 👻':''); }
 let cmT; function centerMsg(t){ const e=$('#centerMsg'); e.textContent=t; e.classList.remove('pop'); void e.offsetWidth; if(t) e.classList.add('pop'); }
 function fmtTime(t){ const m=Math.floor(t/60), s=Math.floor(t%60); return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }
-function quitToLobby(){ resetPicks(); G.running=false; active='lobby'; exitPointerLock(); hideModal(); viewOffsetMode=null; updateViewOffset(); showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); }
+function quitToLobby(){ resetPicks(); G.running=false; active='lobby'; exitPointerLock(); hideModal(); viewOffsetMode=null; updateViewOffset(); hideJoyFig(); showScreen('lobby'); setLobbyOllie(); refreshLobby(); flushChests(); }
 
 /* ===== economy v2: every 5 wins = a Play chest; chests wait in S.pendingChests (reload-safe) until shown ===== */
 function noteWin(){ const r=ECO.noteWin(S); if(r){ ECO.incrementPity(S, r.rarity, {high:false}); S.pendingChests.push({ rarity:r.rarity, source:r.source }); } return !!r; }
@@ -927,12 +928,196 @@ addEventListener('pointercancel', e=>{ if(dragging&&dragging.id===e.pointerId) d
 const joyEl=$('#joy'), knob=$('#joyKnob');
 joyEl.addEventListener('pointerdown', e=>{ ac(); joy.active=true; joy.id=e.pointerId; joyEl.setPointerCapture(e.pointerId); joyMove(e); e.preventDefault(); });
 joyEl.addEventListener('pointermove', e=>{ if(joy.active&&e.pointerId===joy.id) joyMove(e); });
-const joyEnd=e=>{ if(e.pointerId!==joy.id) return; joy.active=false; joy.x=joy.y=0; knob.style.transform=''; };
+const joyEnd=e=>{ if(e.pointerId!==joy.id) return; joy.active=false; joy.x=joy.y=0; knob.style.transform=''; if(joyFig) joyFig.dirty=true; };
 joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercancel', joyEnd);
-function joyMove(e){ const r=joyEl.getBoundingClientRect(); const R=r.width/2; let dx=e.clientX-(r.left+R), dy=e.clientY-(r.top+R); const d=Math.hypot(dx,dy), max=R*.62; if(d>max){ dx*=max/d; dy*=max/d; } knob.style.transform=`translate(${dx}px,${dy}px)`; joy.x=dx/max; joy.y=-dy/max; }
+function joyMove(e){ const r=joyEl.getBoundingClientRect(); const R=r.width/2; let dx=e.clientX-(r.left+R), dy=e.clientY-(r.top+R); const d=Math.hypot(dx,dy), max=R*.62; if(d>max){ dx*=max/d; dy*=max/d; } knob.style.transform=`translate(${dx}px,${dy}px)`; joy.x=dx/max; joy.y=-dy/max; if(joyFig) joyFig.dirty=true; }
 $('#dashBtn').addEventListener('pointerdown', e=>{ e.preventDefault(); ac(); tryDash(); });
 $('#pauseBtn').onclick=()=>{ SFX.click(); pauseGame(); };
 function tryDash(){ if(!G.running||G.dashCd>0) return; G.dashT=.35; G.dashCd=1.4; SFX.dash(); spawnSparkles(G.scene, G.player.position.clone().add(new THREE.Vector3(0,.6,0)), 0x9fe8ff, 8); }
+
+/* ===================== JOYSTICK BUDDY (2D full-body player) ===================== */
+// A small offscreen snapshot of the current character, posed so one arm holds the on-screen
+// stick and follows it. Shown only with the touch joystick (maze + race HUD). pointer-events
+// stay none so it never steals taps. Re-renders only when the stick (or look) changes.
+const joyFigEl=$('#joyFig');
+const joyFig={ on:false, dirty:true, key:'', lastX:NaN, lastY:NaN, w:0, h:0, scene:null, char:null, cam:null, rt:null, buf:null, src:null, ink:null, ctx:null, base:new THREE.Vector3(), look:new THREE.Vector3(),
+  v:new THREE.Vector3(), v2:new THREE.Vector3(), v3:new THREE.Vector3(), v4:new THREE.Vector3(), v5:new THREE.Vector3(), inv:new THREE.Matrix4(), box:new THREE.Box3(), col:new THREE.Color(), vp:new THREE.Vector4() };
+function joyFigWanted(){ return !!(isTouch && joyFigEl && active==='game'); }
+function joyFigResize(){
+  if(!joyFigEl || !joyFigWanted()) return;
+  const r=joyFigEl.getBoundingClientRect();
+  const dpr=Math.min(devicePixelRatio||1, 2);
+  let w=Math.max(8, Math.round(r.width*dpr)), h=Math.max(8, Math.round(r.height*dpr));
+  const cap=280; if(w>cap){ h=Math.round(h*cap/w); w=cap; } if(h>cap){ w=Math.round(w*cap/h); h=cap; }
+  if(joyFigEl.width!==w || joyFigEl.height!==h){ joyFigEl.width=w; joyFigEl.height=h; joyFig.w=w; joyFig.h=h; joyFig.dirty=true; }
+  else { joyFig.w=w; joyFig.h=h; }
+}
+function ensureJoyFig(){
+  if(joyFig.scene) return;
+  const sc=new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x6a7aa8, 1.55));
+  const d=new THREE.DirectionalLight(0xffffff, 2.15); d.position.set(2.4, 5, 6); sc.add(d);
+  const f=new THREE.DirectionalLight(0x9fd8ff, .85); f.position.set(-4, 2, -3); sc.add(f);
+  joyFig.scene=sc;
+  joyFig.cam=new THREE.PerspectiveCamera(28, 1, .05, 40);
+  joyFig.ctx=joyFigEl.getContext('2d');
+  joyFig.src=document.createElement('canvas');
+  joyFig.ink=document.createElement('canvas');
+}
+function dropJoyChar(){
+  const o=joyFig.char; if(!o) return;
+  if(o.parent) o.parent.remove(o);
+  joyFig.char=null; joyFig.key='';
+}
+function syncJoyFigChar(){
+  const key=lookKey(S.selChar, S.equipped);
+  if(joyFig.char && joyFig.key===key) return;
+  dropJoyChar();
+  const o=buildOllie({ charId:S.selChar||'ollie', equipped:S.equipped||{} });
+  o.userData.baseY=0; o.position.set(0,0,0); o.rotation.set(0,0,0);
+  joyFig.scene.add(o); joyFig.char=o; joyFig.key=key;
+  frameJoyFigCam();
+  joyFig.base.copy(o.position);
+}
+function frameJoyFigCam(){
+  const o=joyFig.char, cam=joyFig.cam; if(!o||!cam) return;
+  o.position.copy(joyFig.base); o.rotation.set(0,-.55,0);
+  const fp=o.userData.parts||{};
+  if(fp.rig){ fp.rig.rotation.set(0,0,0); fp.rig.position.y=0; }
+  if(fp['sh-1']){ fp['sh-1'].rotation.set(-.25,.05,-1.35); fp['sh-1'].quaternion.setFromEuler(fp['sh-1'].rotation); }
+  o.updateMatrixWorld(true);
+  const box=joyFig.box.setFromObject(o); if(box.isEmpty()) return;
+  const c=box.getCenter(joyFig.v), sz=box.getSize(joyFig.v2);
+  const look=joyFig.look.copy(c); look.x -= sz.x*.12; look.y += sz.y*.02;
+  const r=Math.max(sz.x, sz.y, sz.z)*1.35+.34;
+  const dir=joyFig.v3.set(.18,.2,1).normalize();
+  cam.aspect=(joyFig.w||256)/(joyFig.h||192);
+  cam.fov=30; cam.position.copy(look).addScaledVector(dir, r/Math.sin(THREE.MathUtils.degToRad(15)));
+  cam.lookAt(look); cam.updateProjectionMatrix();
+}
+function joyFigHand(p){
+  const sh=p && p['sh-1']; if(!sh) return null;
+  sh.updateWorldMatrix(true,false);
+  const origin=joyFig.v5.setFromMatrixPosition(sh.matrixWorld);
+  const arm=p['arm-1']||sh.children[0];
+  if(arm){
+    const box=joyFig.box.setFromObject(arm);
+    if(!box.isEmpty()){
+      // paw: corner of the arm box furthest from the shoulder
+      const c=box.getCenter(joyFig.v4); let best=c, bestD=-1;
+      for(const sx of [box.min.x,box.max.x]) for(const sy of [box.min.y,box.max.y]) for(const sz of [box.min.z,box.max.z]){
+        const d=origin.distanceToSquared(joyFig.v.set(sx,sy,sz)); if(d>bestD){ bestD=d; best=joyFig.v4.set(sx,sy,sz); }
+      }
+      return best;
+    }
+  }
+  return origin.add(joyFig.v.set(0,-.38,0));
+}
+function poseJoyBuddy(){
+  const o=joyFig.char; if(!o) return;
+  const p=o.userData.parts||{};
+  const jx=joy.x||0, jy=joy.y||0;
+  o.position.copy(joyFig.base);
+  o.rotation.set(0,-.55,0);
+  if(p.rig){ p.rig.position.y=jy*.04; p.rig.rotation.set(jy*.16, jx*.08, -jx*.3); p.rig.quaternion.setFromEuler(p.rig.rotation); }
+  if(p.head){ p.head.rotation.set(-jy*.12, jx*.22-.12, -jx*.1); p.head.quaternion.setFromEuler(p.head.rotation); }
+  const sh=p['sh-1'], arm=p['arm-1'];
+  if(arm) arm.rotation.set(0,0,0);
+  if(sh){
+    // reach left toward the stick; follow the knob with simple, stable angles
+    sh.rotation.set(-.25-jy*.4, .05+jx*.15, -1.35-jx*.25);
+    sh.quaternion.setFromEuler(sh.rotation);
+  }
+  if(p.sh1){ p.sh1.rotation.set(-.15,.1,.32); p.sh1.quaternion.setFromEuler(p.sh1.rotation); }
+  o.updateMatrixWorld(true);
+  // screen-space left tip of the reaching arm — that's the paw that should sit on the knob
+  const pawArm=arm||(sh&&sh.children[0]);
+  const box=pawArm?joyFig.box.setFromObject(pawArm):null;
+  let hx=Infinity, hy=0, found=false;
+  if(box && !box.isEmpty()){
+    for(const sx of [box.min.x,box.max.x]) for(const sy of [box.min.y,box.max.y]) for(const sz of [box.min.z,box.max.z]){
+      const hp=joyFig.v.set(sx,sy,sz).project(joyFig.cam);
+      const px=(hp.x*.5+.5)*joyFig.w, py=(-hp.y*.5+.5)*joyFig.h;
+      if(px<hx){ hx=px; hy=py; found=true; }
+    }
+  }
+  if(!found){ const hand=joyFigHand(p); if(hand){ const hp=joyFig.v.copy(hand).project(joyFig.cam); hx=(hp.x*.5+.5)*joyFig.w; hy=(-hp.y*.5+.5)*joyFig.h; found=true; } }
+  joyFig.hx=found?hx:joyFig.w*.28; joyFig.hy=found?hy:joyFig.h*.55;
+}
+function blitJoyFig(){
+  const w=joyFig.w, h=joyFig.h; if(!w||!h) return;
+  if(!joyFig.rt || joyFig.rt.width!==w || joyFig.rt.height!==h){
+    if(joyFig.rt) joyFig.rt.dispose();
+    joyFig.rt=new THREE.WebGLRenderTarget(w,h,{ depthBuffer:true });
+    try{ if(joyFig.rt.texture) joyFig.rt.texture.colorSpace=THREE.SRGBColorSpace; }catch(e){}
+    joyFig.buf=new Uint8Array(w*h*4);
+  }
+  if(joyFig.src.width!==w){ joyFig.src.width=w; joyFig.src.height=h; }
+  if(joyFig.ink.width!==w){ joyFig.ink.width=w; joyFig.ink.height=h; }
+  const prevRT=renderer.getRenderTarget();
+  renderer.getClearColor(joyFig.col); const prevA=renderer.getClearAlpha();
+  renderer.getViewport(joyFig.vp);
+  renderer.setClearColor(0x000000, 0);
+  renderer.setRenderTarget(joyFig.rt); renderer.setViewport(0,0,w,h); renderer.clear();
+  renderer.render(joyFig.scene, joyFig.cam);
+  renderer.readRenderTargetPixels(joyFig.rt, 0, 0, w, h, joyFig.buf);
+  renderer.setRenderTarget(prevRT); renderer.setClearColor(joyFig.col, prevA); renderer.setViewport(joyFig.vp);
+  const sctx=joyFig.src.getContext('2d');
+  let img=joyFig.img; if(!img || img.width!==w || img.height!==h){ img=sctx.createImageData(w,h); joyFig.img=img; }
+  for(let y=0;y<h;y++) img.data.set(joyFig.buf.subarray((h-1-y)*w*4, (h-y)*w*4), y*w*4);
+  sctx.putImageData(img,0,0);
+  // chunky #16163a ink outline, then the snapshot on top
+  const ictx=joyFig.ink.getContext('2d'); ictx.clearRect(0,0,w,h);
+  const o=Math.max(2, Math.round(Math.min(w,h)/64));
+  for(let i=0;i<8;i++){ const a=i*Math.PI/4; ictx.drawImage(joyFig.src, Math.round(Math.cos(a)*o), Math.round(Math.sin(a)*o)); }
+  ictx.globalCompositeOperation='source-in'; ictx.fillStyle='#16163a'; ictx.fillRect(0,0,w,h); ictx.globalCompositeOperation='source-over';
+  // slide the snapshot so the reaching hand sits on the on-screen knob
+  const fr=joyFigEl.getBoundingClientRect(), kr=knob.getBoundingClientRect();
+  const knobX=(kr.left+kr.width/2-fr.left)*w/Math.max(1,fr.width);
+  const knobY=(kr.top+kr.height/2-fr.top)*h/Math.max(1,fr.height);
+  let ox=knobX-(joyFig.hx||w*.28), oy=knobY-(joyFig.hy||h*.55);
+  // paw = leftmost visible pixel around mid-torso, where the reaching arm sticks out
+  const srcData=img.data; let minx=w,miny=h,maxx=0,maxy=0;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(srcData[(y*w+x)*4+3]>16){ if(x<minx)minx=x; if(y<miny)miny=y; if(x>maxx)maxx=x; if(y>maxy)maxy=y; }
+  if(maxx>=minx){
+    const y0=Math.round(miny+(maxy-miny)*.22), y1=Math.round(miny+(maxy-miny)*.7);
+    let pawX=w, pawY=(y0+y1)/2;
+    for(let y=y0;y<=y1;y++) for(let x=minx;x<=maxx;x++) if(srcData[(y*w+x)*4+3]>16 && x<pawX){ pawX=x; pawY=y; }
+    ox=knobX-pawX; oy=knobY-pawY;
+    const m=2;
+    ox=Math.max(m-minx, Math.min(w-m-maxx, ox));
+    oy=Math.max(m-miny, Math.min(h-m-maxy, oy));
+  }
+  const ctx=joyFig.ctx; ctx.clearRect(0,0,w,h); ctx.drawImage(joyFig.ink,ox,oy); ctx.drawImage(joyFig.src,ox,oy);
+}
+function drawJoyFig(){
+  if(!joyFigWanted()){ if(joyFigEl && joyFigEl.style.display!=='none') hideJoyFig(); return; }
+  if(!joyFig.on) showJoyFig();
+  if(!joyFig.dirty && joyFig.lastX===joy.x && joyFig.lastY===joy.y) return;
+  try{
+    ensureJoyFig(); joyFigResize(); syncJoyFigChar();
+    if(joyFig.cam && (joyFig.cam.aspect!==(joyFig.w/(joyFig.h||1)))) frameJoyFigCam();
+    poseJoyBuddy(); blitJoyFig();
+    joyFig.lastX=joy.x; joyFig.lastY=joy.y; joyFig.dirty=false;
+  }catch(e){ console.warn('joy fig failed', e); hideJoyFig(); }
+}
+function showJoyFig(){
+  if(!joyFigWanted()){ hideJoyFig(); return; }
+  ensureJoyFig(); joyFig.on=true; joyFig.dirty=true; joyFig.lastX=NaN;
+  joyFigResize(); try{ syncJoyFigChar(); }catch(e){ console.warn('joy fig build failed', e); hideJoyFig(); return; }
+  drawJoyFig();
+}
+function hideJoyFig(){
+  joyFig.on=false; joyFig.dirty=true;
+  if(joyFigEl){ const c=joyFig.ctx||joyFigEl.getContext('2d'); if(c) c.clearRect(0,0,joyFigEl.width,joyFigEl.height); }
+  dropJoyChar();
+}
+function poseJoyFig(x,y){
+  joy.x=Math.max(-1,Math.min(1,+x||0)); joy.y=Math.max(-1,Math.min(1,+y||0));
+  const r=joyEl.getBoundingClientRect(), max=r.width/2*.62;
+  knob.style.transform=`translate(${joy.x*max}px,${-joy.y*max}px)`;
+  joyFig.dirty=true; drawJoyFig();
+}
 
 /* ===================== UPDATE ===================== */
 const tmpV=new THREE.Vector3(), camTarget=new THREE.Vector3();
@@ -1092,7 +1277,7 @@ function lobbyProbe(){
 let last=performance.now(), realDt=0; const FPS={n:0,t:0,slow:0};
 function fpsMon(d){ if(active!=='game'||document.hidden) { FPS.n=0; FPS.t=0; return; } FPS.n++; FPS.t+=d; if(FPS.t>=2.5){ const fps=FPS.n/FPS.t; FPS.n=0; FPS.t=0; if((S.quality||'auto')==='auto' && !autoLow && fps<34){ if(++FPS.slow>=2){ autoLow=true; applyQuality(); toast('Switched to Low graphics for smoother play'); } } else FPS.slow=0; } }
 function loop(now){ requestAnimationFrame(loop); realDt=(now-last)/1000; const dt=Math.min(.05,realDt); last=now; const t=now/1000; uTime.value=t; fpsMon(realDt);
-  if(active==='game'){ updateGame(dt,t); updateSparkles(dt); renderer.render(G.scene,camera); }
+  if(active==='game'){ updateGame(dt,t); updateSparkles(dt); renderer.render(G.scene,camera); drawJoyFig(); }
   else if(active==='lobby'){ updateLobby(dt,t); updateSparkles(dt); renderer.render(lobby.scene,camera); }
 }
 
@@ -1355,4 +1540,4 @@ resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lob
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
 hookLB();
 window.__zkidzLB = LB;
-window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, startCards, startSort, startDash, startHide, startSpeller, startSwim, startBubble, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, lobbyProbe, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, HEAVENLY_EQ, LAVA_EQ, IMAP, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
+window.__zkidz = { S, G, ECO, ITEMS, CHARS, PLAYABLE, isPlayable, quitToLobby, startMaze, startRace, poseJoyFig, startCards, startSort, startDash, startHide, startSpeller, startSwim, startBubble, openPanel, finishMaze, renderChests, openChestModal, hideModal, showModal, setLobbyOllie, buildOllie, charScreenRect, lobbyProbe, get shopTryOn(){ return shopTryOn; }, SAMPLE_LOOKS, lookThumb, HEAVENLY_EQ, LAVA_EQ, IMAP, music:{ get key(){ return musicKey; }, get ready(){ return musicReady; }, get enabled(){ return musicEnabled(); }, get ext(){ return musicFormat(); }, get el(){ return musicA; }, vol:MUSIC_VOL, pickExt:pickAudioExt, unlock:unlockMusic, sync:syncMusic, play:playMusic, setOn:setMusicOn } };
