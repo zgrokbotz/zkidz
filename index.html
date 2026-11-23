@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a6fc2">
 <title>ZKIDZ – Ocean Maze</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦦</text></svg>">
-<link rel="stylesheet" href="style.css?v=20261116-14">
+<link rel="stylesheet" href="style.css?v=20261123-1">
 <script>
 /* Safari 15 / iPadOS 15: CanvasRenderingContext2D.roundRect is Safari 16+. */
 (function(){ var P=typeof CanvasRenderingContext2D!=='undefined' && CanvasRenderingContext2D.prototype; if(!P||P.roundRect) return;
@@ -18,7 +18,7 @@
     this.moveTo(x+rtl,y); this.lineTo(x+w-rtr,y); this.quadraticCurveTo(x+w,y,x+w,y+rtr); this.lineTo(x+w,y+h-rbr); this.quadraticCurveTo(x+w,y+h,x+w-rbr,y+h); this.lineTo(x+rbl,y+h); this.quadraticCurveTo(x,y+h,x,y+h-rbl); this.lineTo(x,y+rtl); this.quadraticCurveTo(x,y,x+rtl,y); this.closePath(); return this; };
 })();
 </script>
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=20261116-14","three/addons/":"./vendor/addons/"}}</script>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js?v=20261123-1","three/addons/":"./vendor/addons/"}}</script>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -48,6 +48,7 @@
     <button class="mode" data-mode="sort">REEF SORT</button>
     <button class="mode" data-mode="dash">REEF DINER</button>
     <button class="mode" data-mode="hide">HIDE &amp; SEEK</button>
+    <button class="mode" data-mode="speller">OCEAN SPELLER</button>
   </div>
   <div id="playRow">
     <button id="playBtn" class="btn big">PLAY<small id="playSub">Maze · Level 1</small></button>
@@ -102,6 +103,6 @@
 <div id="rotate">📱↻ Turn your phone sideways for the best fun!</div>
 <div id="toast"></div>
 <div id="musicBox" aria-hidden="true"></div>
-<script type="module" src="game.js?v=20261116-14"></script>
+<script type="module" src="game.js?v=20261123-1"></script>
 </body>
 </html>

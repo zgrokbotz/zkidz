@@ -10,6 +10,7 @@ export const LB_TABS = [
   ['sort','🐚 Sort'],
   ['diner','🍽️ Diner'],
   ['hide','🙈 Hide'],
+  ['speller','🔤 Speller'],
   ['total','⭐ Total']
 ];
 const LOWER_BETTER = { race:true };
@@ -107,6 +108,10 @@ export function localScores(s){
     const P=JSON.parse(localStorage.getItem('zkidz_hide_v1')||'{}')||{};
     const cleared=Math.max(0, (P.unlocked|0)-1, ...Object.keys(P.clears||{}).map(Number), ...Object.keys(P.stars||{}).map(Number));
     if(cleared>0) out.hide=cleared;
+  }catch(e){}
+  try{
+    const P=JSON.parse(localStorage.getItem('zkidz_speller_v1')||'{}')||{};
+    if((P.best|0)>0) out.speller=P.best|0;
   }catch(e){}
   return out;
 }

@@ -10,8 +10,8 @@
 //  - Patterns are fragment-shader paint (Pip's bib, Sunny's spots/whisker dots, Percy's red jaw, Nova's belly).
 //  - Parts contract unchanged: rig, body, head (invisible pivot on the torso), hatAnchor, eyeAnchor, sh±1 > arm±1,
 //    foot±1 (unit spheres scaled, so shoes still fit), tail (a Group; empty where the mockup has no tail).
-import * as THREE from './vendor/three.module.min.js?v=20261116-14';
-import { clay, gloss, shineMat, neckTorso, sstep } from './ollie-v2.js?v=20261116-14';
+import * as THREE from './vendor/three.module.min.js?v=20261123-1';
+import { clay, gloss, shineMat, neckTorso, sstep } from './ollie-v2.js?v=20261123-1';
 
 const TAU = Math.PI * 2, Zv = new THREE.Vector3(0, 0, 1);
 
@@ -483,7 +483,11 @@ export function buildB2(kind, { equipped = {}, ghost = false } = {}, D = {}){
   const fit = clothFit(kind);
   const top = (kind === 'giga' ? .918 : V.prof[V.prof.length - 1][0]) * U, yb0 = top - (kind === 'giga' ? .22 : .44), rb = radAt(G.prof, yb0);
   const hs = fit.hatScale != null ? fit.hatScale : rb * 1.06 / .47;
-  const hatA = new THREE.Group(); hatA.position.y = fit.hatY != null ? fit.hatY : (yb0 - .22 * hs - HY); hatA.scale.setScalar(hs); head.add(hatA); parts.hatAnchor = hatA;
+  const hatA = new THREE.Group();
+  hatA.position.set(0, fit.hatY != null ? fit.hatY : (yb0 - .22 * hs - HY), fit.hatZ != null ? fit.hatZ : 0);
+  hatA.scale.setScalar(hs);
+  if(fit.hatTiltX) hatA.rotation.x = fit.hatTiltX;
+  head.add(hatA); parts.hatAnchor = hatA;
   const es0 = Math.max(.75, eh.p.x / .2);
   const eS = fit.eyeScale != null ? (Array.isArray(fit.eyeScale) ? fit.eyeScale : [fit.eyeScale, fit.eyeScale, fit.eyeScale]) : [es0, es0, es0];
   const eyeA = new THREE.Group();
@@ -583,7 +587,7 @@ export const CLOTH_FIT = {
     teeBottom: .52, teeTop: .96, teeScale: 1.04,           // default 1.20 sits on the eyes (≈1.20)
     pantBottom: .26, pantTop: .62, pantScale: 1.05, pantTrim: null,
     shoes: 'feet', shoeScale: 1,
-    hatY: .16, hatScale: 1.22,                            // was 1.59 — huge dome over the eyes in the 72° lobby cam
+    hatY: .40, hatZ: 0, hatTiltX: .18, hatScale: 1.12,      // on the crown; slight front pitch so the brim sits over the forehead (was .16 / 1.22, embedded in the front)
     eyeY: -.136, eyeZ: .21, eyeScale: [1.62, 1.15, 1.08],  // rims were flush with the snout (dZ≈0); push forward
     wristScale: 1, handScale: 1
   },

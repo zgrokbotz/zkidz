@@ -637,3 +637,6 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 .lb-in{font:inherit;font-size:calc(var(--u)*2.6);padding:calc(var(--u)*.7) calc(var(--u)*1.2);border-radius:12px;border:2px solid var(--ink);background:#fff8e8;color:#1a1a3a;min-width:12em;max-width:100%}
 .lb-err{color:#ffd36a;min-height:1.2em;font-size:calc(var(--u)*2.2)}
 .lb tr.me .lb-face{border-color:#ffd52e}
+
+/* Ocean Speller = 7th MODE button: give it the full last row so the grid stays even (2 columns, or 3 on very wide desktops) */
+.modes > .mode[data-mode="speller"],#lobby .modes > .mode[data-mode="speller"]{grid-column:1/-1}
