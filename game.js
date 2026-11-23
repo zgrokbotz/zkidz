@@ -7,7 +7,7 @@ import { openReefDiner } from './dash/dash.js?v=20261124-3';
 import { openHideSeek } from './hide/hide-seek.js?v=20261124-3';
 import { openSpeller } from './speller/speller.js?v=20261124-3';
 import { openSwim } from './swim/swim.js?v=20261124-3';
-import { openBubble } from './bubble/bubble.js?v=20261124-5';
+import { openBubble } from './bubble/bubble.js?v=20261124-6';
 import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261124-3';
 import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261124-3';
 import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261124-3';
@@ -168,7 +168,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261124-5';
+const ASSET_V = '20261124-6';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
