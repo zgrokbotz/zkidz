@@ -560,14 +560,15 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 .modes{display:grid;grid-template-columns:1fr 1fr;width:calc(var(--u)*24)}
 .modes::before{grid-column:1/-1}
 .mode{min-width:0;width:100%;box-sizing:border-box;white-space:normal;line-height:1.05;text-align:center;font-size:calc(var(--u)*1.9);padding:calc(var(--u)*.3) calc(var(--u)*.5)}
-.modes > .mode:last-child{grid-column:auto;width:100%;justify-self:stretch}
+.modes > .mode:last-child{grid-column:1/-1;width:100%;justify-self:stretch}
 @media (orientation:landscape) and (max-height:500px){
   #lobby .modes{display:grid;grid-template-columns:1fr 1fr;width:min(230px,34vw);gap:calc(var(--u)*.22);padding:calc(var(--u)*.25) calc(var(--u)*.4)}
   #lobby .mode{min-height:44px;min-width:0;font-size:calc(var(--u)*1.55);padding:calc(var(--u)*.06) calc(var(--u)*.35)}
-  #lobby .modes > .mode:last-child{grid-column:auto;width:100%}
+  #lobby .modes > .mode:last-child{grid-column:1/-1;width:100%}
 }
 @media (min-width:1500px) and (orientation:landscape) and (min-height:501px){
   .modes{grid-template-columns:1fr 1fr 1fr;width:calc(var(--u)*32)}
+  .modes > .mode:last-child{grid-column:auto}
 }
 /* Landscape / desktop: selected mode must not scale out of the 2x3 cell,
    and PLAY must stay clear of the left progress card and the right MODE grid. */
@@ -638,5 +639,5 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 .lb-err{color:#ffd36a;min-height:1.2em;font-size:calc(var(--u)*2.2)}
 .lb tr.me .lb-face{border-color:#ffd52e}
 
-/* Ocean Speller = 7th MODE button: give it the full last row so the grid stays even (2 columns, or 3 on very wide desktops) */
-.modes > .mode[data-mode="speller"],#lobby .modes > .mode[data-mode="speller"]{grid-column:1/-1}
+/* 9 MODE buttons: last one (Bubble Pop) spans the full last row on the 2-column grid so it stays even.
+   The 3-column wide-desktop grid is already 3×3, so no span there (handled with the last-child rule above). */

@@ -5,8 +5,8 @@
  *   import { openSpeller } from './speller/speller.js';
  *   openSpeller({ ECO, S, save, artUrl, chars, kit, sfxOn, onWin, onExit, lb });
  * Own save key: zkidz_speller_v1. Leaderboard mode: 'speller' (score). */
-import { V, INK, FONT, clamp, rand, pick, firstName, injectCss, loadSave, writeSave, makeSfx, creditStarfish, payHtml, chestHtml, showModal, hideModal, toast, confetti, topBar, charMap } from '../mini/mini.js?v=20261123-1';
-import { WORDS, MAX_LEVEL, levelConfig, poolIsSafe, fillerLetters, blockedIn } from './words.js?v=20261123-1';
+import { V, INK, FONT, clamp, rand, pick, firstName, injectCss, loadSave, writeSave, makeSfx, creditStarfish, payHtml, chestHtml, showModal, hideModal, toast, confetti, topBar, charMap } from '../mini/mini.js?v=20261124-2';
+import { WORDS, MAX_LEVEL, levelConfig, poolIsSafe, fillerLetters, blockedIn } from './words.js?v=20261124-2';
 
 /* ================= ECONOMY — APPROVED by Zander (Zokenomics' Ocean Speller numbers) ================= */
 export const SP_ROUND_BASE     = 6;    // every finished 60s round

@@ -1,7 +1,7 @@
 /* ZKIDZ mini-game kit — shared by Bubble Pop (bubble/), Endless Swimmer (swim/) and Ocean Speller (speller/).
  * Synth SFX (WebAudio, no files), save helpers with defaults, the shared Starfish payout path
  * (ECO.ensureDay + ECO.cardsEarn, Play-chest win hook), the results card, and small DOM helpers. No CDNs. */
-export const V = '20261123-1';
+export const V = '20261124-2';
 export const INK = '#16163a';
 export const FONT = "'Lilita One','Arial Black','Trebuchet MS',system-ui,sans-serif";
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));

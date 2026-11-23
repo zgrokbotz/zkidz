@@ -11,6 +11,8 @@ export const LB_TABS = [
   ['diner','🍽️ Diner'],
   ['hide','🙈 Hide'],
   ['speller','🔤 Speller'],
+  ['swim','🏊 Swim'],
+  ['bubble','🫧 Bubble'],
   ['total','⭐ Total']
 ];
 const LOWER_BETTER = { race:true };
@@ -84,6 +86,8 @@ export function formatScore(mode, score){
   const n = +score;
   if(!isFinite(n)) return '—';
   if(mode==='race') return (n/1000).toFixed(2)+'s';
+  if(mode==='swim') return Math.round(n).toLocaleString()+' m';
+  if(mode==='bubble') return Math.round(n).toLocaleString();
   if(mode==='diner' || mode==='total') return String(Math.round(n));
   if(mode==='maze' || mode==='sort' || mode==='hide' || mode==='match') return 'Level '+Math.round(n);
   return String(Math.round(n));
@@ -112,6 +116,14 @@ export function localScores(s){
   try{
     const P=JSON.parse(localStorage.getItem('zkidz_speller_v1')||'{}')||{};
     if((P.best|0)>0) out.speller=P.best|0;
+  }catch(e){}
+  try{
+    const P=JSON.parse(localStorage.getItem('zkidz_swim_v1')||'{}')||{};
+    if((P.best|0)>0) out.swim=P.best|0;
+  }catch(e){}
+  try{
+    const P=JSON.parse(localStorage.getItem('zkidz_bubble_v1')||'{}')||{};
+    if((P.best|0)>0) out.bubble=P.best|0;
   }catch(e){}
   return out;
 }
