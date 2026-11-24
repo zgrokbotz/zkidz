@@ -18,6 +18,6 @@ body[data-screen=bubble] #rotate{display:none!important}
   #oceanBubble .zm-endless{margin-top:6px}
 }
 
-/* Shooter buddy: 2D full-body player next to the cannon; never intercepts aim / HUD taps */
-#oceanBubble .bp-fig{position:absolute;z-index:3;pointer-events:none!important;display:none;left:0;top:0;width:96px;height:120px}
-#oceanBubble .bp-fig.on{display:block}
+/* Shooter buddy is painted onto the game canvas behind the cannon (aim/shooter stay on top).
+   Any leftover bake canvas must never intercept taps. */
+#oceanBubble .bp-fig{pointer-events:none!important;display:none}

@@ -76,8 +76,8 @@ export function openBubble(opts={}){
   seedDrift(); fit(); refreshCoins(); toMenu();
   H.raf=requestAnimationFrame(loop);
   window.__bubblePop={ _owned:true, get H(){ return H; }, startLevel, startEndless, fire, swap, winNow, loseNow, finishNow, poseAim,
-    bpStoryPay, bpEndlessPay, bpStars, bpBudget, bpScore,
-    consts:{ BP_FIRST_CLEAR, BP_REPLAY, BP_THREE_STAR_BONUS, BP_ENDLESS_PER_WAVE, BP_ENDLESS_CAP, BP_WIN_MIN_SECONDS, BP_WIN_MIN_WAVES, STORY_LEVELS, COLS, DANGER_ROW } };
+    bpStoryPay, bpEndlessPay, bpStars, bpBudget, bpScore, buddyRect, get bpFig(){ return bpFig; },
+    consts:{ BP_FIRST_CLEAR, BP_REPLAY, BP_THREE_STAR_BONUS, BP_ENDLESS_PER_WAVE, BP_ENDLESS_CAP, BP_WIN_MIN_SECONDS, BP_WIN_MIN_WAVES, STORY_LEVELS, COLS, DANGER_ROW, AIM_PAD, BP_FIG_PAD, BP_FIG_BAKE } };
   return { close:closeBubble };
 }
 export function closeBubble(){
@@ -429,7 +429,7 @@ function fit(){
   const ox=(w-COLS*2*R)/2+R, oy=topMin+R+slack*0.72;
   const sx=w/2, sy=oy+(DANGER_ROW+1.15)*R*SQRT3, sand=oy+DANGER_ROW*R*SQRT3;
   H.lay={ R, ox, oy, sx, sy, left:ox-R, right:ox-R+COLS*2*R, ceil:oy-R, sand, top:topMin, bot:botMin };
-  placeHud(); placeBpFig(); seedWeeds();
+  placeHud(); seedWeeds();
 }
 function placeHud(){
   const el=H&&H.root&&$('.bp-hud2'), L=H&&H.lay; if(!el||!L) return;
@@ -474,13 +474,14 @@ function draw(){
   cx.fillStyle='#16325a'; cx.strokeStyle=INK; cx.lineWidth=4; roundRect(cx, L.left-6, cy-14, L.right-L.left+12, 18, 8); cx.fill(); cx.stroke();
   // grid
   eachCell((r,c,v)=>{ const [x,y]=cellPos(r,c); bubble(cx,x,y,L.R,v); });
-  // in-flight
+  // in-flight is drawn after the buddy so the shot stays readable
+  syncBpFig();
+  drawBpFig(cx);
   if(H.shot) bubble(cx,H.shot.x,H.shot.y,L.R,H.shot.color);
   else if(!H.run.busy && !H.run.ended && !H.run.paused) drawAim(cx);
   // fx
   H.fx.forEach(p=>{ if(p.delay>0) return; const k=1-p.t/p.life; if(p.typ==='pop') bubble(cx,p.x,p.y,L.R*Math.max(.1,1-p.t/p.life),p.col,k); else if(p.typ==='fall') bubble(cx,p.x,p.y,L.R,p.col,k); else { cx.globalAlpha=k; cx.fillStyle=COLORS[p.col]||'#fff'; cx.beginPath(); cx.arc(p.x,p.y,L.R*.18,0,7); cx.fill(); cx.globalAlpha=1; } });
   drawShooter(cx);
-  syncBpFig();
 }
 function drawIdleBubbles(){ const L=H.lay; for(let i=0;i<8;i++){ const x=L.ox+(i%9)*L.R*2, y=L.oy+Math.sin(H.t*.7+i)*.4*L.R+L.R*1.2; if(i<COLS) bubble(H.cx,x,y,L.R*.85,i%COLORS.length,.9); } }
 function drawAim(cx){
@@ -573,36 +574,44 @@ function frond(cx, x, base, h, tw, sway, col, blades){
 }
 
 /* ================= shooter buddy (2D snapshot of the current player) ================= */
+// Painted onto the game canvas BEHIND the shooter and aim line (so those stay on top).
+// Bake uses the same crop-safe path as bgswim: full child Box3 (hats + gear),
+// union bounds over the arm sweep, orthographic camera with 12% padding, and no
+// pixel-ratio-scaled setViewport on the offscreen target.
+const BP_FIG_PAD=0.12, BP_FIG_BAKE=384;
 const bpFig={ el:null, ctx:null, src:null, ink:null, img:null, scene:null, char:null, cam:null, rt:null, buf:null,
-  key:'', lastAim:NaN, w:0, h:0, dirty:true, side:'left',
-  v:null, v2:null, v3:null, box:null, col:null, vp:null, base:null, look:null };
+  key:'', lastAim:NaN, w:0, h:0, aspect:0, framed:false, dirty:true, on:false,
+  v:null, v2:null, v3:null, box:null, col:null, vp:null, scis:null, base:null };
 function kit3(){ return H&&H.opts&&H.opts.kit; }
 function bpLookKey(){ const S=H&&H.opts&&H.opts.S||{}; const eq=S.equipped||{}; return (S.selChar||'ollie')+'|'+Object.keys(eq).sort().map(s=>s+':'+(eq[s]||'')).join(','); }
 function figWanted(){ return !!(H && H.screen==='play' && H.run && !H.run.ended && kit3() && kit3().renderer && kit3().THREE && kit3().buildChar); }
-function hideBpFig(){ if(bpFig.el) bpFig.el.classList.remove('on'); }
+function hideBpFig(){ bpFig.on=false; }
 function disposeBpFig(){
   hideBpFig();
   if(bpFig.char && bpFig.char.parent) bpFig.char.parent.remove(bpFig.char);
   if(bpFig.rt){ try{ bpFig.rt.dispose(); }catch(e){} }
   if(bpFig.el && bpFig.el.parentNode) bpFig.el.parentNode.removeChild(bpFig.el);
   bpFig.el=bpFig.ctx=bpFig.src=bpFig.ink=bpFig.img=bpFig.scene=bpFig.char=bpFig.cam=bpFig.rt=bpFig.buf=null;
-  bpFig.key=''; bpFig.lastAim=NaN; bpFig.dirty=true;
+  bpFig.key=''; bpFig.lastAim=NaN; bpFig.framed=false; bpFig.dirty=true;
 }
 function ensureBpFig(){
-  if(bpFig.el) return; const kit=kit3(); if(!kit) return;
+  if(bpFig.src) return; const kit=kit3(); if(!kit) return;
   const THREE=kit.THREE;
-  const el=document.createElement('canvas'); el.className='bp-fig'; el.setAttribute('aria-hidden','true');
-  H.root.appendChild(el);
+  // Offscreen bake only — nothing is overlaid on the HUD, so aim/shooter stay clickable
+  // and readable. pointer-events none is kept on the canvas if one is ever attached.
+  const el=document.createElement('canvas'); el.className='bp-fig'; el.setAttribute('aria-hidden','true'); el.style.pointerEvents='none';
   bpFig.el=el; bpFig.ctx=el.getContext('2d');
   bpFig.src=document.createElement('canvas'); bpFig.ink=document.createElement('canvas');
   const sc=new THREE.Scene();
   sc.add(new THREE.HemisphereLight(0xffffff, 0x6a7aa8, 1.55));
   const d=new THREE.DirectionalLight(0xffffff, 2.15); d.position.set(2.4,5,6); sc.add(d);
   const f=new THREE.DirectionalLight(0x9fd8ff, .85); f.position.set(-4,2,-3); sc.add(f);
-  bpFig.scene=sc; bpFig.cam=new THREE.PerspectiveCamera(30, .8, .05, 40);
+  bpFig.scene=sc;
+  bpFig.cam=new THREE.OrthographicCamera(-1,1,1,-1, .05, 80);
   bpFig.v=new THREE.Vector3(); bpFig.v2=new THREE.Vector3(); bpFig.v3=new THREE.Vector3();
-  bpFig.box=new THREE.Box3(); bpFig.col=new THREE.Color(); bpFig.vp=new THREE.Vector4();
-  bpFig.base=new THREE.Vector3(); bpFig.look=new THREE.Vector3();
+  bpFig.box=new THREE.Box3(); bpFig.col=new THREE.Color();
+  bpFig.vp=new THREE.Vector4(); bpFig.scis=new THREE.Vector4();
+  bpFig.base=new THREE.Vector3();
 }
 function syncBpChar(){
   const kit=kit3(), key=bpLookKey(); if(!kit) return;
@@ -611,44 +620,99 @@ function syncBpChar(){
   const S=H.opts.S||{}, id=S.selChar||'ollie';
   const o=kit.buildChar(id);
   o.userData.baseY=0; o.position.set(0,0,0); o.rotation.set(0,0,0);
-  bpFig.scene.add(o); bpFig.char=o; bpFig.key=key; bpFig.dirty=true;
-  frameBpCam();
+  bpFig.scene.add(o); bpFig.char=o; bpFig.key=key;
   bpFig.base.copy(o.position);
+  bpFig.framed=false; bpFig.dirty=true;
 }
-function frameBpCam(){
-  const o=bpFig.char, cam=bpFig.cam, THREE=kit3().THREE; if(!o||!cam) return;
-  const side=bpFig.side==='right'?1:-1;
-  o.position.copy(bpFig.base||{x:0,y:0,z:0}); o.rotation.set(0, .28*side, 0);
+function worldBox(o, THREE){
   o.updateMatrixWorld(true);
-  const box=bpFig.box.setFromObject(o); if(box.isEmpty()) return;
-  const c=box.getCenter(bpFig.v), sz=box.getSize(bpFig.v2);
-  const look=bpFig.look.copy(c); look.y+=sz.y*.02;
-  const r=Math.max(sz.x,sz.y,sz.z)*1.02+.16;
-  const dir=bpFig.v3.set(-.1*side, .18, 1).normalize();
-  cam.aspect=(bpFig.w||160)/(bpFig.h||200);
-  cam.fov=30; cam.position.copy(look).addScaledVector(dir, r/Math.sin(THREE.MathUtils.degToRad(15)));
-  cam.lookAt(look); cam.updateProjectionMatrix();
+  const box=new THREE.Box3(); box.makeEmpty();
+  const v=bpFig.v;
+  o.traverse(m=>{
+    if(!m.isMesh || !m.geometry) return;
+    if(!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+    const b=m.geometry.boundingBox; if(!b) return;
+    for(const x of [b.min.x,b.max.x]) for(const y of [b.min.y,b.max.y]) for(const z of [b.min.z,b.max.z]){
+      v.set(x,y,z).applyMatrix4(m.matrixWorld);
+      box.expandByPoint(v);
+    }
+  });
+  if(box.isEmpty()) box.setFromObject(o);
+  return box.clone();
+}
+function frameBuddyCam(box, THREE){
+  const cam=bpFig.cam;
+  const c=box.getCenter(bpFig.v2);
+  const sz=box.getSize(bpFig.v3);
+  const dir=new THREE.Vector3(0,.22,1).normalize();
+  const dist=Math.max(4, sz.length()*1.6);
+  cam.position.copy(c).addScaledVector(dir, dist);
+  cam.up.set(0,1,0);
+  cam.lookAt(c);
+  cam.updateMatrixWorld(true);
+  const inv=cam.matrixWorldInverse;
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity, minZ=Infinity, maxZ=-Infinity;
+  const v=bpFig.v;
+  for(const x of [box.min.x,box.max.x]) for(const y of [box.min.y,box.max.y]) for(const z of [box.min.z,box.max.z]){
+    v.set(x,y,z).applyMatrix4(inv);
+    if(v.x<minX)minX=v.x; if(v.x>maxX)maxX=v.x;
+    if(v.y<minY)minY=v.y; if(v.y>maxY)maxY=v.y;
+    if(v.z<minZ)minZ=v.z; if(v.z>maxZ)maxZ=v.z;
+  }
+  const hw=(maxX-minX)/2, hh=(maxY-minY)/2;
+  const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
+  const padX=Math.max(hw*BP_FIG_PAD, (hw+hh)*0.03, 0.04);
+  const padY=Math.max(hh*BP_FIG_PAD, (hw+hh)*0.03, 0.04);
+  cam.left=cx-hw-padX; cam.right=cx+hw+padX;
+  cam.top=cy+hh+padY; cam.bottom=cy-hh-padY;
+  cam.near=Math.max(0.05, -maxZ-1);
+  cam.far=Math.max(cam.near+1, -minZ+1);
+  cam.updateProjectionMatrix();
+  const fw=cam.right-cam.left, fh=cam.top-cam.bottom;
+  const aspect=fw/Math.max(1e-6,fh);
+  let w,h;
+  if(aspect>=1){ w=BP_FIG_BAKE; h=Math.max(48, Math.round(BP_FIG_BAKE/aspect)); }
+  else { h=BP_FIG_BAKE; w=Math.max(48, Math.round(BP_FIG_BAKE*aspect)); }
+  return { w, h, aspect };
 }
 function poseBpBuddy(aim){
   const o=bpFig.char; if(!o) return;
-  const p=o.userData.parts||{}, side=bpFig.side==='right'?1:-1;
-  // 0 = straight up, -1 = left, +1 = right
+  const p=o.userData.parts||{};
   const span=Math.PI/2-AIM_PAD, t=clamp((aim+Math.PI/2)/span, -1, 1);
-  o.position.copy(bpFig.base); o.rotation.set(0, .28*side, 0);
-  if(p.rig){ p.rig.position.y=0; p.rig.rotation.set(.08, t*.12, -t*.2); p.rig.quaternion.setFromEuler(p.rig.rotation); }
-  if(p.head){ p.head.rotation.set(-.12, t*.45, -t*.08); p.head.quaternion.setFromEuler(p.head.rotation); }
-  // the inward arm (toward the shooter) follows the aim; the far arm stays casual
-  const inn=side<0?'sh1':'sh-1', out=side<0?'sh-1':'sh1';
-  const innA=side<0?'arm1':'arm-1', outA=side<0?'arm-1':'arm1';
-  if(p[outA]) p[outA].rotation.set(0,0,0);
-  if(p[innA]) p[innA].rotation.set(0,0,0);
-  if(p[out]){ p[out].rotation.set(-.2, 0, -.28*side); p[out].quaternion.setFromEuler(p[out].rotation); }
-  if(p[inn]){
-    // inward arm follows the aim (t: -1 left, 0 up, +1 right)
-    p[inn].rotation.set(-.55-t*.7*side, .08*side, (1.2+t*.55*side)*side);
-    p[inn].quaternion.setFromEuler(p[inn].rotation);
+  o.position.copy(bpFig.base);
+  o.rotation.set(0, t*.18, 0);
+  if(p.rig){ p.rig.position.y=0; p.rig.rotation.set(.1, t*.12, -t*.26); p.rig.quaternion.setFromEuler(p.rig.rotation); }
+  if(p.head){ p.head.rotation.set(-.1, t*.5, -t*.1); p.head.quaternion.setFromEuler(p.head.rotation); }
+  if(p['arm-1']) p['arm-1'].rotation.set(0,0,0);
+  if(p.arm1) p.arm1.rotation.set(0,0,0);
+  // both arms / paws follow the aim so it reads as pointing and steering the ball
+  if(p['sh-1']){
+    p['sh-1'].rotation.set(-.65+t*.4, .12, -1.15+t*.5);
+    p['sh-1'].quaternion.setFromEuler(p['sh-1'].rotation);
+  }
+  if(p.sh1){
+    p.sh1.rotation.set(-.65-t*.4, -.12, 1.15+t*.5);
+    p.sh1.quaternion.setFromEuler(p.sh1.rotation);
   }
   o.updateMatrixWorld(true);
+}
+function refitBuddyCam(){
+  const THREE=kit3().THREE;
+  const box=new THREE.Box3(); box.makeEmpty();
+  for(const a of [-Math.PI+AIM_PAD, -Math.PI*.75, -Math.PI/2, -Math.PI*.25, -AIM_PAD]){
+    poseBpBuddy(a);
+    box.union(worldBox(bpFig.char, THREE));
+  }
+  if(box.isEmpty()) return;
+  const { w, h, aspect }=frameBuddyCam(box, THREE);
+  if(bpFig.w!==w || bpFig.h!==h){
+    if(bpFig.rt){ try{ bpFig.rt.dispose(); }catch(e){} bpFig.rt=null; }
+    bpFig.buf=null; bpFig.img=null;
+    if(bpFig.el){ bpFig.el.width=w; bpFig.el.height=h; }
+    if(bpFig.src){ bpFig.src.width=w; bpFig.src.height=h; }
+    if(bpFig.ink){ bpFig.ink.width=w; bpFig.ink.height=h; }
+  }
+  bpFig.w=w; bpFig.h=h; bpFig.aspect=aspect; bpFig.framed=true;
 }
 function blitBpFig(){
   const kit=kit3(), w=bpFig.w, h=bpFig.h; if(!kit||!w||!h) return;
@@ -664,11 +728,19 @@ function blitBpFig(){
   const prevRT=renderer.getRenderTarget();
   renderer.getClearColor(bpFig.col); const prevA=renderer.getClearAlpha();
   renderer.getViewport(bpFig.vp);
+  renderer.getScissor(bpFig.scis);
+  const prevScissorTest=renderer.getScissorTest();
   renderer.setClearColor(0x000000, 0);
-  renderer.setRenderTarget(bpFig.rt); renderer.setViewport(0,0,w,h); renderer.clear();
+  // The RT already has a 0,0,w,h viewport in its own pixels. Do not call
+  // setViewport here: the renderer multiplies those values by getPixelRatio(),
+  // which clips the top and right of the bake on retina/touch.
+  renderer.setRenderTarget(bpFig.rt);
+  renderer.setScissorTest(false);
+  renderer.clear();
   renderer.render(bpFig.scene, bpFig.cam);
   renderer.readRenderTargetPixels(bpFig.rt, 0, 0, w, h, bpFig.buf);
-  renderer.setRenderTarget(prevRT); renderer.setClearColor(bpFig.col, prevA); renderer.setViewport(bpFig.vp);
+  renderer.setRenderTarget(prevRT); renderer.setClearColor(bpFig.col, prevA);
+  renderer.setViewport(bpFig.vp); renderer.setScissor(bpFig.scis); renderer.setScissorTest(prevScissorTest);
   const sctx=bpFig.src.getContext('2d');
   let img=bpFig.img; if(!img||img.width!==w||img.height!==h){ img=sctx.createImageData(w,h); bpFig.img=img; }
   for(let y=0;y<h;y++) img.data.set(bpFig.buf.subarray((h-1-y)*w*4,(h-y)*w*4), y*w*4);
@@ -677,43 +749,36 @@ function blitBpFig(){
   const o=Math.max(2, Math.round(Math.min(w,h)/64));
   for(let i=0;i<8;i++){ const a=i*Math.PI/4; ictx.drawImage(bpFig.src, Math.round(Math.cos(a)*o), Math.round(Math.sin(a)*o)); }
   ictx.globalCompositeOperation='source-in'; ictx.fillStyle='#16163a'; ictx.fillRect(0,0,w,h); ictx.globalCompositeOperation='source-over';
+  if(bpFig.el){ if(bpFig.el.width!==w||bpFig.el.height!==h){ bpFig.el.width=w; bpFig.el.height=h; } }
   const ctx=bpFig.ctx; ctx.clearRect(0,0,w,h); ctx.drawImage(bpFig.ink,0,0); ctx.drawImage(bpFig.src,0,0);
 }
-function placeBpFig(){
-  if(!figWanted()){ hideBpFig(); return; }
-  ensureBpFig(); if(!bpFig.el) return;
-  const L=H.lay, hud=$('.bp-hud2');
-  let side='left';
-  if(hud && !hud.classList.contains('hidden')){
-    const hr=hud.getBoundingClientRect(), rr=H.root.getBoundingClientRect();
-    if((hr.left+hr.width/2) < rr.left+L.sx) side='right';
-  }
-  if(side!==bpFig.side){ bpFig.side=side; bpFig.dirty=true; }
-  // sit fully on the sand, under the danger line, so the aim line and board stay clear
-  const band=Math.max(72, H.vh-L.sand+12), ratio=1.22;
-  const css=clamp(Math.min(L.R*5.2, band/ratio), 64, 150);
-  const fw=css, fh=Math.min(css*ratio, band);
-  let left=side==='left' ? L.sx-L.R*1.45-fw : L.sx+L.R*1.45;
-  left=clamp(left, 2, H.vw-fw-2);
-  let top=L.sy+L.R*.8-fh;
-  top=clamp(top, L.sand-Math.min(16, fh*.12), H.vh-fh-2);
-  const el=bpFig.el;
-  el.style.left=left+'px'; el.style.top=top+'px'; el.style.width=fw+'px'; el.style.height=fh+'px';
+function buddyRect(){
+  const L=H.lay; if(!L) return null;
+  const aspect=bpFig.aspect||((bpFig.w&&bpFig.h)?bpFig.w/bpFig.h:.82);
   const dpr=Math.min(2, H.dpr||window.devicePixelRatio||1);
-  let w=Math.max(8, Math.round(fw*dpr)), h=Math.max(8, Math.round(fh*dpr));
-  const cap=220; if(w>cap){ h=Math.round(h*cap/w); w=cap; } if(h>cap){ w=Math.round(w*cap/h); h=cap; }
-  if(el.width!==w||el.height!==h){ el.width=w; el.height=h; bpFig.w=w; bpFig.h=h; bpFig.dirty=true; }
-  else { bpFig.w=w; bpFig.h=h; }
+  // never display larger than the bake at this DPR, so the sprite stays crisp
+  const maxCss=BP_FIG_BAKE/dpr;
+  const fh=clamp(Math.min(L.R*6.2, (H.vh-L.sand)+L.R*2.4, H.vh*.3, maxCss), 88, maxCss);
+  const fw=fh*aspect;
+  const x=L.sx-fw/2;
+  let y=L.sy+L.R*1.05-fh;
+  y=clamp(y, L.sand-fh*.4, H.vh-fh-2);
+  return { x, y, w:fw, h:fh };
+}
+function drawBpFig(cx){
+  if(!figWanted() || !bpFig.on || !bpFig.el || !bpFig.w) return;
+  const r=buddyRect(); if(!r) return;
+  cx.drawImage(bpFig.el, r.x, r.y, r.w, r.h);
 }
 function syncBpFig(force){
   if(!figWanted()){ hideBpFig(); return; }
   try{
-    ensureBpFig(); placeBpFig(); syncBpChar();
+    ensureBpFig(); syncBpChar();
     const aim=H.aim;
-    if(!force && !bpFig.dirty && bpFig.lastAim===aim && bpFig.el.classList.contains('on')) return;
-    if(bpFig.cam && bpFig.cam.aspect!==(bpFig.w/(bpFig.h||1))) frameBpCam();
+    if(!force && !bpFig.dirty && bpFig.framed && bpFig.lastAim===aim && bpFig.on) return;
+    if(!bpFig.framed) refitBuddyCam();
     poseBpBuddy(aim); blitBpFig();
-    bpFig.lastAim=aim; bpFig.dirty=false; bpFig.el.classList.add('on');
+    bpFig.lastAim=aim; bpFig.dirty=false; bpFig.on=true;
   }catch(e){ console.warn('bubble fig failed', e); hideBpFig(); }
 }
 
