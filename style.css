@@ -225,9 +225,10 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 }
 /* phones held upright use Zamer's #lobbyDock (MODE + PLAY stacked): the card joins the dock, above MODE so PLAY stays in thumb reach */
 @media (orientation:portrait){
-  #lobbyDock .lobby-prog{position:relative;left:auto;bottom:auto;transform:none;order:-1;width:100%;box-sizing:border-box;padding:calc(var(--u)*.8) calc(var(--u)*1.2);column-gap:calc(var(--u)*1.2)}
+  #lobbyDock .lobby-prog{position:relative;left:auto;bottom:auto;transform:none;order:-1;width:100%;box-sizing:border-box;padding:calc(var(--u)*.5) calc(var(--u)*1);column-gap:calc(var(--u)*1);row-gap:calc(var(--u)*.25)}
   #lobbyDock .lobby-prog:active{transform:translateY(3px)}
-  #lobbyDock .lpg-lbl{font-size:calc(var(--u)*2.1)}#lobbyDock .lpg-mile{font-size:calc(var(--u)*1.9)}#lobbyDock .lpg-ic{font-size:calc(var(--u)*3.2)}
+  #lobbyDock .lpg-lbl{font-size:calc(var(--u)*1.85)}#lobbyDock .lpg-mile{font-size:calc(var(--u)*1.65);margin-top:1px}#lobbyDock .lpg-ic{font-size:calc(var(--u)*2.7)}
+  #lobbyDock .lpg-seg{height:calc(var(--u)*2)}#lobbyDock .lpg-bar{height:calc(var(--u)*1.7)}
 }
 /* finish modals */
 .allstar{display:inline-block;margin:calc(var(--u)*.6) 0;padding:calc(var(--u)*.5) calc(var(--u)*2);border-radius:99px;background:linear-gradient(#ffe25a,#ffaa00);color:#16163a;border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);font-size:calc(var(--u)*2.6);text-shadow:none;animation:allstarPop .6s cubic-bezier(.3,1.6,.5,1) both}
@@ -533,14 +534,17 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 /* ---------- phone lobby layout ---------- */
 /* Portrait: raise PLAY + modes into a centered dock above the safe area / browser chrome. */
 @media (orientation:portrait){
-  #lobbyDock{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*.8);z-index:3;width:min(82vw,calc(var(--u)*48));max-width:calc(100vw - 16px);pointer-events:none}
+  #lobbyDock{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:calc(var(--u)*.55);z-index:3;width:min(94vw, 360px);max-width:calc(100vw - 12px);pointer-events:none}
   #lobbyDock>*{pointer-events:auto}
-  #lobbyDock .modes{position:relative;left:auto;right:auto;bottom:auto;display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--u)*.55);padding:calc(var(--u)*.7);width:100%;margin:0;box-sizing:border-box}
-  #lobbyDock .modes::before{grid-column:1/-1;margin:0 0 2px}
-  #lobbyDock .mode{min-width:0;width:100%;min-height:44px;font-size:calc(var(--u)*2.15);padding:calc(var(--u)*.25) calc(var(--u)*.4);line-height:1.05;white-space:normal;transform:none}
+  #lobbyDock .modes{position:relative;left:auto;right:auto;bottom:auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:calc(var(--u)*.35);padding:calc(var(--u)*.45) calc(var(--u)*.45) calc(var(--u)*.5);width:100%;margin:0;box-sizing:border-box}
+  #lobbyDock .modes::before{grid-column:1/-1;margin:0 0 1px;font-size:calc(var(--u)*1.55)}
+  #lobbyDock .modes > .mode:last-child{grid-column:auto;width:100%}
+  #lobbyDock .mode{min-width:0;width:100%;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:clamp(11px,3.3vw,14px);padding:calc(var(--u)*.15) 3px calc(var(--u)*.2);line-height:1;white-space:nowrap;transform:none;overflow:visible;text-shadow:0 1px 0 var(--ink),1px 1px 0 var(--ink),-1px 1px 0 var(--ink),1px -1px 0 var(--ink),-1px -1px 0 var(--ink)}
+  #lobbyDock .mode .mode-ic{font-size:calc(var(--u)*2.6);line-height:1;filter:drop-shadow(0 2px 0 var(--ink));display:block}
+  #lobbyDock .mode .mode-lb{display:block;letter-spacing:.02em}
   #lobbyDock .mode.sel{transform:none;box-shadow:0 calc(var(--u)*.4) 0 var(--ink),0 0 0 calc(var(--u)*.28) #fff}
   #lobbyDock #playRow{position:relative;left:auto;bottom:auto;transform:none;width:100%;max-width:100%}
-  #lobbyDock #playBtn,#lobbyDock .btn.big{min-height:44px;width:100%;max-width:100%;font-size:calc(var(--u)*5.2);padding:calc(var(--u)*.7) calc(var(--u)*2)}
+  #lobbyDock #playBtn,#lobbyDock .btn.big{min-height:44px;width:100%;max-width:100%;font-size:calc(var(--u)*4.6);padding:calc(var(--u)*.5) calc(var(--u)*2)}
   #lobby .side{top:calc(14% + env(safe-area-inset-top,0px));z-index:3}
   #lobby .sq{min-width:44px;min-height:44px}
   #lobby .logo{top:max(6px, env(safe-area-inset-top,0px));font-size:clamp(26px, 4.2vh, 40px);letter-spacing:.5px;line-height:1;animation:none;z-index:4;transform:translateX(-50%) rotate(-2deg)}
@@ -648,3 +652,65 @@ body[data-screen=hud] #rotate{animation:rotfade 5s forwards}
 
 /* 9 MODE buttons: last one (Bubble Pop) spans the full last row on the 2-column grid so it stays even.
    The 3-column wide-desktop grid is already 3×3, so no span there (handled with the last-child rule above). */
+
+/* ===== lobby button pictures: animated common chest + animated current character (lobbyanim) ===== */
+.sq .la-chest,.sq .la-char{filter:none;font-size:calc(var(--u)*4.2);display:flex;align-items:center;justify-content:center;line-height:1;position:relative}
+.la-chest{width:calc(var(--u)*7.2);height:calc(var(--u)*7.2);margin:calc(var(--u)*-.6) 0 calc(var(--u)*-.9)}
+.la-chest i{display:block;font-style:normal}
+.la-chest .la-bob{position:relative;width:100%;height:100%;animation:la-bob 2.4s ease-in-out infinite;will-change:transform}
+.la-chest .la-wig{width:100%;height:100%;transform-origin:50% 85%;animation:la-wig 3.6s ease-in-out infinite;will-change:transform}
+.la-chest .la-frame{position:relative;width:100%;height:100%;border-radius:calc(var(--u)*1.1);border:calc(var(--u)*.3) solid var(--ink);box-shadow:0 calc(var(--u)*.35) 0 var(--ink);overflow:hidden;background:#b9c2cf;box-sizing:border-box}
+.la-chest .la-chest-img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;transform:scale(1.55);transform-origin:49% 56%;pointer-events:none;-webkit-user-drag:none}
+.la-chest .la-frame::after{content:'';position:absolute;top:-25%;bottom:-25%;left:-70%;width:38%;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.85),rgba(255,255,255,0));transform:translateX(0) skewX(-18deg);animation:la-shine 3.6s ease-in-out infinite}
+.la-chest .la-sp{position:absolute;width:calc(var(--u)*1.7);height:calc(var(--u)*1.7);background:#ffe25a;clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);opacity:0;transform:scale(.2);animation:la-twinkle 2.4s ease-in-out infinite;pointer-events:none}
+.la-chest .la-sp.s1{right:-8%;top:-8%}
+.la-chest .la-sp.s2{left:-10%;top:30%;width:calc(var(--u)*1.2);height:calc(var(--u)*1.2);animation-delay:.8s}
+.la-chest .la-sp.s3{right:-6%;bottom:6%;width:calc(var(--u)*1.1);height:calc(var(--u)*1.1);animation-delay:1.6s}
+@keyframes la-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6%)}}
+@keyframes la-wig{0%,50%,100%{transform:rotate(0)}56%{transform:rotate(-7deg)}62%{transform:rotate(6deg)}68%{transform:rotate(-4deg)}74%{transform:rotate(2deg)}80%{transform:rotate(0)}}
+@keyframes la-shine{0%,58%{transform:translateX(0) skewX(-18deg)}86%,100%{transform:translateX(480%) skewX(-18deg)}}
+@keyframes la-twinkle{0%,100%{opacity:0;transform:scale(.2) rotate(0)}40%{opacity:1;transform:scale(1) rotate(20deg)}70%{opacity:0;transform:scale(.3) rotate(45deg)}}
+/* current character: CSS steps() over a baked N-frame strip (12 frames, see lobbyanim.js); emoji stays as fallback until ready */
+.la-char{width:calc(var(--u)*6);height:calc(var(--u)*6.7);margin:calc(var(--u)*-.4) 0 calc(var(--u)*-.5)}
+.la-char.ready{font-size:0}
+.la-char.ready::after{content:'';display:block;width:100%;height:100%;background:var(--la-img) 0 0/calc(var(--la-n)*100%) 100% no-repeat;animation:la-step 1.2s steps(12) infinite}
+@keyframes la-step{to{background-position:var(--la-end) 0}}
+/* real 3D chest: 36-frame loop strip baked by lobbyanim.js (lid opens, glow, starfish + coins, closes, pause) */
+.la-chest.ready .la-bob{display:none}
+.la-chest.ready::after{content:'';display:block;width:100%;height:100%;background:var(--lc-img) 0 0/calc(var(--lc-n)*100%) 100% no-repeat;animation:lc-step 3.6s steps(36) infinite}
+@keyframes lc-step{to{background-position:var(--lc-end) 0}}
+@media (prefers-reduced-motion:reduce){
+  .la-chest.ready::after{animation:none}
+  .la-chest .la-bob,.la-chest .la-wig,.la-chest .la-frame::after,.la-chest .la-sp,.la-char.ready::after{animation:none}
+}
+@media (orientation:landscape) and (min-height:501px){
+  #lobby .sq .la-char.ready{font-size:0}
+  #lobby .sq .la-char{width:clamp(44px,4.4vw,66px);height:clamp(50px,4.9vw,74px);margin:-4px 0 -6px}
+  #lobby .sq .la-chest{width:clamp(52px,5.4vw,78px);height:clamp(52px,5.4vw,78px);margin:-4px 0 -6px}
+  #lobby .la-chest .la-frame{border-radius:clamp(8px,.9vw,13px);border-width:clamp(2px,.25vw,3px);box-shadow:0 3px 0 var(--ink)}
+  #lobby .la-chest .la-sp{width:clamp(14px,1.4vw,20px);height:clamp(14px,1.4vw,20px)}
+  #lobby .la-chest .la-sp.s2,#lobby .la-chest .la-sp.s3{width:clamp(10px,1vw,14px);height:clamp(10px,1vw,14px)}
+}
+
+/* short-phone lobby dock: keep 3-col modes tappable and leave room for the character */
+@media (orientation:portrait) and (max-height:760px){
+  #lobbyDock{gap:calc(var(--u)*.4);bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  #lobbyDock .modes{gap:calc(var(--u)*.28);padding:calc(var(--u)*.35)}
+  #lobbyDock .mode{min-height:42px;font-size:clamp(11px,3.2vw,13px);padding:calc(var(--u)*.1) 2px}
+  #lobbyDock .mode .mode-ic{font-size:calc(var(--u)*2.2)}
+  #lobbyDock #playBtn,#lobbyDock .btn.big{min-height:42px;font-size:calc(var(--u)*4.2);padding:calc(var(--u)*.4) calc(var(--u)*1.6)}
+}
+
+/* phone dock: short labels + icons; desktop/landscape keeps the original full names and no icons */
+.mode .mode-short{display:none}
+.mode .mode-full{display:inline}
+.mode .mode-ic{display:none}
+@media (orientation:portrait){
+  #lobbyDock .mode .mode-short{display:inline}
+  #lobbyDock .mode .mode-full{display:none}
+  #lobbyDock .mode .mode-ic{display:block}
+}
+
+@media (orientation:portrait) and (max-width:380px){
+  #lobby .sq{font-size:clamp(7px, 1.9vw, 11px); letter-spacing:0; text-shadow:0 1px 0 var(--ink),1px 1px 0 var(--ink),-1px 1px 0 var(--ink),1px -1px 0 var(--ink),-1px -1px 0 var(--ink)}
+}

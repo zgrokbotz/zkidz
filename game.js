@@ -8,6 +8,7 @@ import { openHideSeek } from './hide/hide-seek.js?v=20261124-3';
 import { openSpeller } from './speller/speller.js?v=20261124-3';
 import { openSwim } from './swim/swim.js?v=20261124-3';
 import { openBubble } from './bubble/bubble.js?v=20261124-7';
+import { syncLobbyChar, initLobbyChest } from './lobbyanim/lobbyanim.js?v=20261126-8';
 import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261126-1';
 import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261126-1';
 import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261124-3';
@@ -105,7 +106,8 @@ const CHARS = [
 const ART_IDS = ['ollie','pip','sunny','bubbles','nova','dash','shelly','pinchy','coco','squirt','lulu','percy','sharkie','oscar','wade','polly','hammy','zippy','bella','tusk','mo','gus','angie','nudi','echo','jelly','stella','finn','puff','hank','inky','milo','wally','kelpie','giga'];
 CHARS.forEach(c=>c.art = ART_IDS.includes(c.id));
 const CMAP = Object.fromEntries(CHARS.map(c=>[c.id,c]));
-function artUrl(id){ return (window.__ART && window.__ART[id]) || `art/${id}.jpg?v=${ASSET_V}`; }
+const REEF_ART = new Set(['ollie','pip','sunny','stella','hank','pinchy','tusk','mo','gus','jelly','dash','zippy','finn','puff','shelly','coco','bubbles','squirt','lulu','angie','bella','echo','percy','sharkie','polly','inky','milo','wally','oscar','nova','wade','nudi','kelpie','giga']);
+function artUrl(id){ if(window.__ART && window.__ART[id]) return window.__ART[id]; if(REEF_ART.has(id)) return `art/reef/${id}.jpg?v=${ASSET_V}`; return `art/${id}.jpg?v=${ASSET_V}`; }
 function iconHtml(it, cls='ic'){ if(it.slot && it.m){ const u=itemThumb(it); if(u) return `<div class="${cls} thumbic"><img src="${u}" alt="${it.name}" draggable="false"></div>`; }
   return it.art ? `<div class="${cls} artic"><img src="${artUrl(it.id)}" alt="${it.name}" draggable="false"></div>` : `<div class="${cls}" ${it.hue?`style="filter:hue-rotate(${it.id==='bubbles'?'300deg':'180deg'}) saturate(1.5)"`:''}>${it.em}</div>`; }
 CHARS.forEach(c=>c.price = c.id==='ollie'?0:PRICE[c.r]*2);
@@ -168,7 +170,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261124-7';
+const ASSET_V = '20261126-8';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -674,7 +676,7 @@ function setLobbyOllie(){ if(lobby.ollie) lobby.scene.remove(lobby.ollie);
   lobby.pedestal=buildPedestal({ top: shop?.28:.52 }); lobby.scene.add(lobby.pedestal);
   lobby.ollie=buildOllie(opts);
   lobby.ollie.userData.baseY=shop?.28:.52; lobby.ollie.position.y=lobby.ollie.userData.baseY; lobby.ollie.scale.setScalar(shop?1.12:1.6); lobby.scene.add(lobby.ollie);
-  addBlobShadow(lobby.ollie); captureLobbyRestBox(); invalidateLobbyFrame(); triggerAnim(lobby.ollie, 'wave'); }
+  addBlobShadow(lobby.ollie); captureLobbyRestBox(); invalidateLobbyFrame(); triggerAnim(lobby.ollie, 'wave'); try{ syncLobbyChar(miniKit(), S); }catch(e){ console.warn('lobby char button', e); } }
 let viewOffsetMode=null;
 let shopTryOn=null; // {kind:'item',id} | {kind:'char',id} | {kind:'look',name,char,eq}
 function shopChar(){ if(shopTryOn && shopTryOn.kind==='char' && isPlayable(shopTryOn.id)) return shopTryOn.id; return S.selChar; }
@@ -1536,7 +1538,7 @@ function cardsWin(){ clearInterval(C.iv); const secs=C.t0?Math.round((performanc
 $('#cardsQuit').onclick=()=>{ SFX.click(); clearInterval(C.iv); flipBack(); quitToLobby(); };
 
 /* ===================== INIT ===================== */
-resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);
+try{ initLobbyChest(artUrl('chest-common')); }catch(e){} resize(); warmThumbs(); setLobbyOllie(); save(); refreshLobby(); showScreen('lobby'); requestAnimationFrame(loop);
 if(HELLO_TODAY) setTimeout(()=>toast(`Hi ${S.name}! Here's ${ECO.DAILY_LOGIN_STARFISH} ${STAR} for saying hello 👋`),600);
 hookLB();
 window.__zkidzLB = LB;

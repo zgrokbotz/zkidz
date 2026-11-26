@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0a6fc2">
 <title>ZKIDZ – Ocean Maze</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦦</text></svg>">
-<link rel="stylesheet" href="style.css?v=20261124-7">
+<link rel="stylesheet" href="style.css?v=20261126-8">
 <script>
 /* Safari 15 / iPadOS 15: CanvasRenderingContext2D.roundRect is Safari 16+. */
 (function(){ var P=typeof CanvasRenderingContext2D!=='undefined' && CanvasRenderingContext2D.prototype; if(!P||P.roundRect) return;
@@ -33,24 +33,24 @@
   <div class="logo">ZKIDZ</div>
   <div class="side left">
     <button class="sq shop-sq" data-open="shop"><span class="shop-stand"><svg class="shop-svg" viewBox="0 0 64 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 8h52l-5 16H11L6 8z" fill="#fff4d6" stroke="#16163a" stroke-width="3" stroke-linejoin="round"/><path d="M14 8l4 16h9L23 8z" fill="#ff5b6c"/><path d="M36 8l4 16h9L45 8z" fill="#ff5b6c"/><path d="M6 8h52" fill="none" stroke="#16163a" stroke-width="3"/><circle cx="14" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="26" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><circle cx="38" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="50" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><rect x="12" y="28" width="40" height="20" rx="4" fill="#e39a3a" stroke="#16163a" stroke-width="3"/><rect x="20" y="32" width="24" height="10" rx="2" fill="#7fd6ff" stroke="#16163a" stroke-width="2"/><polygon points="32,4 34.2,8.6 39.2,9 35.4,12.4 36.5,17.2 32,14.6 27.5,17.2 28.6,12.4 24.8,9 29.8,8.6" fill="#ffc94a" stroke="#16163a" stroke-width="1.6" stroke-linejoin="round"/></svg></span>SHOP</button>
-    <button class="sq" data-open="characters"><span>📖</span>CHARACTERS</button>
+    <button class="sq" id="charsBtn" data-open="characters"><span class="la-char" aria-hidden="true">📖</span>CHARACTERS</button>
     <button class="sq" data-open="closet"><span>👕</span>CLOSET</button>
   </div>
   <div class="side right">
     <button class="sq" data-open="leaderboard"><span>🏆</span>LEADERBOARD</button>
-    <button class="sq" data-open="chests"><span>🎁</span>CHESTS</button>
+    <button class="sq" id="chestsBtn" data-open="chests"><span class="la-chest" aria-hidden="true"><i class="la-bob"><i class="la-wig"><i class="la-frame"><img class="la-chest-img" src="art/chest-common.jpg?v=20261124-7" alt="" draggable="false"></i></i><i class="la-sp s1"></i><i class="la-sp s2"></i><i class="la-sp s3"></i></i></span>CHESTS</button>
   </div>
   <div id="lobbyDock">
   <div class="modes">
-    <button class="mode sel" data-mode="maze">MAZE</button>
-    <button class="mode" data-mode="race">RACE</button>
-    <button class="mode" data-mode="cards">MATCH CARDS</button>
-    <button class="mode" data-mode="sort">REEF SORT</button>
-    <button class="mode" data-mode="dash">REEF DINER</button>
-    <button class="mode" data-mode="hide">HIDE &amp; SEEK</button>
-    <button class="mode" data-mode="speller">OCEAN SPELLER</button>
-    <button class="mode" data-mode="swim">ENDLESS SWIMMER</button>
-    <button class="mode" data-mode="bubble">BUBBLE POP</button>
+    <button class="mode sel" data-mode="maze" aria-label="Maze"><span class="mode-ic" aria-hidden="true">🌀</span><span class="mode-lb"><span class="mode-short">MAZE</span><span class="mode-full">MAZE</span></span></button>
+    <button class="mode" data-mode="race" aria-label="Race"><span class="mode-ic" aria-hidden="true">🏁</span><span class="mode-lb"><span class="mode-short">RACE</span><span class="mode-full">RACE</span></span></button>
+    <button class="mode" data-mode="cards" aria-label="Match Cards"><span class="mode-ic" aria-hidden="true">🃏</span><span class="mode-lb"><span class="mode-short">CARDS</span><span class="mode-full">MATCH CARDS</span></span></button>
+    <button class="mode" data-mode="sort" aria-label="Reef Sort"><span class="mode-ic" aria-hidden="true">🧩</span><span class="mode-lb"><span class="mode-short">SORT</span><span class="mode-full">REEF SORT</span></span></button>
+    <button class="mode" data-mode="dash" aria-label="Reef Diner"><span class="mode-ic" aria-hidden="true">🍽️</span><span class="mode-lb"><span class="mode-short">DINER</span><span class="mode-full">REEF DINER</span></span></button>
+    <button class="mode" data-mode="hide" aria-label="Hide and Seek"><span class="mode-ic" aria-hidden="true">🔎</span><span class="mode-lb"><span class="mode-short">HIDE</span><span class="mode-full">HIDE &amp; SEEK</span></span></button>
+    <button class="mode" data-mode="speller" aria-label="Ocean Speller"><span class="mode-ic" aria-hidden="true">🔤</span><span class="mode-lb"><span class="mode-short">SPELL</span><span class="mode-full">OCEAN SPELLER</span></span></button>
+    <button class="mode" data-mode="swim" aria-label="Endless Swimmer"><span class="mode-ic" aria-hidden="true">🏊</span><span class="mode-lb"><span class="mode-short">SWIM</span><span class="mode-full">ENDLESS SWIMMER</span></span></button>
+    <button class="mode" data-mode="bubble" aria-label="Bubble Pop"><span class="mode-ic" aria-hidden="true">🫧</span><span class="mode-lb"><span class="mode-short">POP</span><span class="mode-full">BUBBLE POP</span></span></button>
   </div>
   <div id="playRow">
     <button id="playBtn" class="btn big">PLAY<small id="playSub">Maze · Level 1</small></button>
@@ -106,6 +106,6 @@
 <div id="rotate">📱↻ Turn your phone sideways for the best fun!</div>
 <div id="toast"></div>
 <div id="musicBox" aria-hidden="true"></div>
-<script type="module" src="game.js?v=20261126-1"></script>
+<script type="module" src="game.js?v=20261126-8"></script>
 </body>
 </html>
