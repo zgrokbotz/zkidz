@@ -3,9 +3,11 @@
 // material (one shader per species: belly/patches/dots/stripes are fragment masks, so no extra meshes or textures),
 // and cached fins/tails/gills. buildOllieV2() calls buildSpeciesV2() for every non-otter playable.
 import * as THREE from './vendor/three.module.min.js?v=20261124-3';
-import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261124-3';
-import { B2, buildB2, b2Profile, clothProfile as b2ClothProfile, CLOTH_FIT, clothFit } from './species-b2.js?v=20261124-3';   // batch 2 (v5 polish + CLOTH_FIT)
-export { CLOTH_FIT, clothFit };
+import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261126-1';
+import { B2, buildB2, b2Profile, clothProfile as b2ClothProfile, CLOTH_FIT as CLOTH_FIT_B2 } from './species-b2.js?v=20261126-1';   // batch 2 (v5 polish + CLOTH_FIT)
+import { B3, buildB3, b3Profile, CLOTH_FIT as CLOTH_FIT_B3 } from './species-b3.js?v=20261126-1';   // batch 3 (A: squirt angie bella echo sharkie polly wally nudi)
+export const CLOTH_FIT = { ...CLOTH_FIT_B2, ...CLOTH_FIT_B3 };
+export function clothFit(kind){ return CLOTH_FIT[kind] || {}; }
 
 const W = 'vec3(0.97,0.96,0.93)';
 // ---------- per-species config (rig coords: y up, +z = face). Profiles are [radius, y]. ----------
@@ -105,6 +107,7 @@ vec3 zkPaint(vec3 p, vec3 base, float part){
 };
 const KINDS = Object.keys(SPECIES_V2);
 export const BATCH2 = ['pip','sunny','jelly','lulu','percy','nova','kelpie','giga'];
+export const BATCH3 = ['squirt','angie','bella','echo','sharkie','polly','wally','nudi'];
 
 export const FRAME_EXTENT = {
   ollie: { w:2.04, h:2.23, d:1.72, x0:-0.68, x1:1.36, y0:-0.01, y1:2.22, z0:-1.09, z1:0.63 },
@@ -121,6 +124,15 @@ export const FRAME_EXTENT = {
   nova: { w:1.78, h:2.41, d:1.78, x0:-0.89, x1:0.89, y0:-0.02, y1:2.38, z0:-1.16, z1:0.62 },
   kelpie: { w:1.55, h:2.40, d:0.85, x0:-0.78, x1:0.78, y0:-0.02, y1:2.40, z0:-0.43, z1:0.43 },
   giga: { w:1.61, h:2.36, d:1.28, x0:-0.8, x1:0.8, y0:-0.01, y1:2.35, z0:-0.62, z1:0.66 },
+  // batch 3 (A) — measured rest boxes (no outfit)
+  squirt: { w:1.75, h:2.18, d:1.22, x0:-0.89, x1:0.86, y0:-0.03, y1:2.15, z0:-0.64, z1:0.58 },
+  angie: { w:1.88, h:2.34, d:1.84, x0:-0.94, x1:0.94, y0:-0.04, y1:2.3, z0:-1.14, z1:0.7 },
+  bella: { w:2.22, h:2.24, d:1.48, x0:-1.11, x1:1.11, y0:-0.05, y1:2.24, z0:-0.73, z1:0.75 },
+  echo: { w:2.31, h:2.29, d:1.24, x0:-1.15, x1:1.16, y0:-0.05, y1:2.29, z0:-0.61, z1:0.63 },
+  sharkie: { w:2.56, h:2.40, d:1.83, x0:-1.28, x1:1.28, y0:-0.05, y1:2.40, z0:-1.04, z1:0.79 },
+  polly: { w:2.22, h:2.25, d:1.78, x0:-1.11, x1:1.11, y0:-0.03, y1:2.25, z0:-0.78, z1:1.00 },
+  wally: { w:2.33, h:2.34, d:1.50, x0:-1.17, x1:1.16, y0:-0.05, y1:2.34, z0:-0.74, z1:0.76 },
+  nudi: { w:2.08, h:2.35, d:1.49, x0:-1.04, x1:1.04, y0:-0.05, y1:2.3, z0:-0.68, z1:0.81 },
 };
 
 // ---------- cached geometry per species ----------
@@ -169,6 +181,7 @@ function geos(k){
 }
 export const SPECIES_PROFILES = {}; for(const k of KINDS) SPECIES_PROFILES[k] = spline([...SPECIES_V2[k].body, ...SPECIES_V2[k].head], 90);
 for(const k of BATCH2) Object.defineProperty(SPECIES_PROFILES, k, { enumerable: true, get: () => b2Profile(k) });   // batch 2: measured torso profile (built on first use)
+for(const k of BATCH3) Object.defineProperty(SPECIES_PROFILES, k, { enumerable: true, get: () => b3Profile(k) });   // batch 3
 
 // Clothing profile for bodyR()/profileSlice() (tees at y=0.6–1.2, pants at 0.26–0.62).
 // Dome/mantle bodies (Jelly starts at y=0.68) must not let bodyR extrapolate below the first
@@ -191,6 +204,7 @@ function surfZ(V, P, x, yl){ const R = headR(P, yl + V.headY), kk = sstep(V.neck
 /** Build a V2 species (same contract as buildOllie). deps = the installOllieV2 deps (addEquipment, setProfile). */
 export function buildSpeciesV2(kind, { equipped = {}, ghost = false } = {}, D){
   if(B2[kind]){ const g = buildB2(kind, { equipped, ghost }, D); g.userData.extent = FRAME_EXTENT[kind]; return g; }
+  if(B3[kind]){ const g = buildB3(kind, { equipped, ghost }, D); g.userData.extent = FRAME_EXTENT[kind]; return g; }
   const V = SPECIES_V2[kind], G = geos(kind), P = SPECIES_PROFILES[kind];
   const paint = off => ({ key: kind, glsl: V.glsl, off, part: 0 });
   const o = { rough: V.rough ?? .8, cc: V.cc ?? .05, sheen: V.sheen ?? (V.cc ? .15 : .42) };

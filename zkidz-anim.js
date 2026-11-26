@@ -39,6 +39,14 @@ export const SPECIES = {
   nova:    { tail:'y', tailAmp:.22, tailSpd:2.4, flap:.16, gill:0 },   // fluke
   kelpie:  { tail:'y', tailAmp:.16, tailSpd:2.0, flap:.06, gill:.24 }, // head fronds
   giga:    { tail:'y', tailAmp:.20, tailSpd:2.2, flap:.10, gill:.26 }, // tentacles
+  squirt:  { tail:'y', tailAmp:.10, tailSpd:2.2, flap:.14, gill:0 },   // batch 3: arm-tentacle flap
+  angie:   { tail:'y', tailAmp:.40, tailSpd:5.0, flap:.12, gill:0 },   // fan-tail swish
+  bella:   { tail:'y', tailAmp:.10, tailSpd:1.6, flap:.10, gill:0 },
+  echo:    { tail:'y', tailAmp:.10, tailSpd:1.8, flap:.12, gill:0 },
+  sharkie: { tail:'y', tailAmp:.35, tailSpd:4.0, flap:.12, gill:0 },   // tail swish
+  polly:   { tail:'y', tailAmp:.08, tailSpd:1.6, flap:.14, gill:0 },   // puffin waddle + wing flap
+  wally:   { tail:'y', tailAmp:.10, tailSpd:1.6, flap:.14, gill:0 },
+  nudi:    { tail:'y', tailAmp:.10, tailSpd:1.8, flap:.08, gill:.20 }, // horn wiggle
 };
 // per-character feel (o.userData.animStyle, set by buildOllieV2 variants). Multipliers on the blended pose + extras.
 export const STYLES = {

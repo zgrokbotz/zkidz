@@ -11,7 +11,7 @@
 //  - Parts contract unchanged: rig, body, head (invisible pivot on the torso), hatAnchor, eyeAnchor, sh±1 > arm±1,
 //    foot±1 (unit spheres scaled, so shoes still fit), tail (a Group; empty where the mockup has no tail).
 import * as THREE from './vendor/three.module.min.js?v=20261124-3';
-import { clay, gloss, shineMat, neckTorso, sstep } from './ollie-v2.js?v=20261124-3';
+import { clay, gloss, shineMat, neckTorso, sstep } from './ollie-v2.js?v=20261126-1';
 
 const TAU = Math.PI * 2, Zv = new THREE.Vector3(0, 0, 1);
 
