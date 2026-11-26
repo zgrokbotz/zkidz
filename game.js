@@ -105,6 +105,15 @@ const CHARS = [
 ];
 const ART_IDS = ['ollie','pip','sunny','bubbles','nova','dash','shelly','pinchy','coco','squirt','lulu','percy','sharkie','oscar','wade','polly','hammy','zippy','bella','tusk','mo','gus','angie','nudi','echo','jelly','stella','finn','puff','hank','inky','milo','wally','kelpie','giga'];
 CHARS.forEach(c=>c.art = ART_IDS.includes(c.id));
+// Official chart numbers (Zharacters handoff). Used as a stable secondary sort on the Characters screen.
+const CHAR_CHART = {ollie:1,pip:2,sunny:3,stella:4,hank:5,pinchy:6,tusk:7,mo:8,gus:9,jelly:10,dash:11,zippy:12,finn:13,puff:14,shelly:15,coco:16,bubbles:17,squirt:18,lulu:19,angie:20,bella:21,echo:22,percy:23,sharkie:24,polly:25,inky:26,milo:27,wally:28,oscar:29,nova:30,wade:31,nudi:32,hammy:33,kelpie:51,giga:63};
+function charsByRarity(list){
+  return list.slice().sort((a,b)=>{
+    const ra=(RMAP[a.r]&&RMAP[a.r].idx), rb=(RMAP[b.r]&&RMAP[b.r].idx);
+    if(ra!==rb) return (ra??99)-(rb??99);
+    return (CHAR_CHART[a.id]??999)-(CHAR_CHART[b.id]??999);
+  });
+}
 const CMAP = Object.fromEntries(CHARS.map(c=>[c.id,c]));
 const REEF_ART = new Set(['ollie','pip','sunny','stella','hank','pinchy','tusk','mo','gus','jelly','dash','zippy','finn','puff','shelly','coco','bubbles','squirt','lulu','angie','bella','echo','percy','sharkie','polly','inky','milo','wally','oscar','nova','wade','nudi','kelpie','giga']);
 function artUrl(id){ if(window.__ART && window.__ART[id]) return window.__ART[id]; if(REEF_ART.has(id)) return `art/reef/${id}.jpg?v=${ASSET_V}`; return `art/${id}.jpg?v=${ASSET_V}`; }
@@ -170,7 +179,7 @@ const SFX = {
 /* ===================== BACKGROUND MUSIC ===================== */
 // HTMLAudioElement (not WebAudio) so iOS plays through the silent switch.
 // iPhone Safari cannot play OGG, so we pick m4a/mp3/ogg via canPlayType.
-const ASSET_V = '20261126-8';
+const ASSET_V = '20261126-9';
 const MUSIC_KEYS = ['lobby','play','race','sort'];
 const MUSIC_VOL = 0.6;
 const MUSIC_HOST = 'https://zgrokbotz.github.io/zkidz/';
@@ -1440,7 +1449,7 @@ function renderShop(){ const sub=panelState.shopTab||'clothes'; const body=$('#p
     toast(`Trying on ${r.n}'s look — tap Shop items to browse them!`);
   }); }
 
-function renderChars(){ const body=$('#panelBody'); const list=applyFilter('chars', CHARS); body.innerHTML = filterChips('chars', CHARS, c=>S.chars.includes(c.id)) + `<p class="note">Tap an unlocked friend to play as them in the lobby, Maze, and Race! Dash, Finn, Bubbles, Oscar, Wade, and Ollie are ready — more 3D models are on the way.</p><div class="grid">${list.map(c=>{ const own=S.chars.includes(c.id); const ph= c.id===S.selChar?'<div class="price owned">⭐ SELECTED</div>' : own?'<div class="price owned">UNLOCKED</div>':'<div class="price locked">🔒 LOCKED</div>'; return itemCard(c, ph, (own?'':'lock')+(c.id===S.selChar?' eq':'')); }).join('')}</div>`;
+function renderChars(){ const body=$('#panelBody'); const ordered=charsByRarity(CHARS); const list=applyFilter('chars', ordered); body.innerHTML = filterChips('chars', CHARS, c=>S.chars.includes(c.id)) + `<p class="note">Tap an unlocked friend to play as them in the lobby, Maze, and Race!</p><div class="grid">${list.map(c=>{ const own=S.chars.includes(c.id); const ph= c.id===S.selChar?'<div class="price owned">⭐ SELECTED</div>' : own?'<div class="price owned">UNLOCKED</div>':'<div class="price locked">🔒 LOCKED</div>'; return itemCard(c, ph, (own?'':'lock')+(c.id===S.selChar?' eq':'')); }).join('')}</div>`;
   bindChips('chars', renderChars);
   $$('#panelBody .item').forEach(el=>el.onclick=()=>{ const id=el.dataset.id; if(!S.chars.includes(id)){ toast('Unlock in the Shop or from chests!'); return; } if(!isPlayable(id)){ S.favChar=id; save(); SFX.click(); toast(`${CMAP[id].name}: 3D model coming soon!`); return; } S.selChar=id; save(); SFX.click(); setLobbyOllie(); renderChars(); toast(`${CMAP[id].name.split(' the ')[0]} is ready to play!`); }); }
 const CLOSET_ROWS = [['Hats',i=>i.slot==='hat'],['Eyewear',i=>i.slot==='eyes'],['Tops & Jackets',i=>i.slot==='top'],['Pants',i=>i.slot==='bottom'],['Shoes',i=>i.slot==='shoes'],['Bracelets & Gloves',i=>i.slot==='wrist'||i.slot==='hands']];
