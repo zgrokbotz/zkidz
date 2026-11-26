@@ -171,7 +171,15 @@ function geos(k){
     const base = new THREE.SphereGeometry(.16, 18, 12); G.tail = merge([tg, base]); }
   if(V.fins.includes('dorsalTall')) G.dorsal = fin(finShape([[-.22,0],[-.05,.15],[.02,.42],[.08,.48],[.14,.3],[.18,.12],[.26,0]]), .08);
   if(V.fins.includes('dorsal')) G.dorsal = fin(finShape([[-.18,0],[-.06,.12],[.06,.3],[.12,.33],[.12,.2],[.13,.08],[.2,0]]), .06);
-  if(V.fins.includes('dorsalOrca')) G.dorsal = fin(finShape([[-.24,0],[-.08,.2],[.0,.5],[.06,.56],[.12,.3],[.18,.1],[.26,0]]), .12, .06);
+  if(V.fins.includes('dorsalOrca')){
+    const s = new THREE.Shape();
+    s.moveTo(-.24, 0);
+    s.quadraticCurveTo(-.08, .2, 0, .5);
+    s.quadraticCurveTo(.06, .56, .12, .3);
+    s.quadraticCurveTo(.14, .12, .12, 0);   // steeper trailing; live ended at x=.26 and floated off the back
+    s.lineTo(.10, -.18); s.lineTo(.02, -.34); s.lineTo(-.14, -.34); s.lineTo(-.24, -.16); s.closePath();
+    G.dorsal = fin(s, .12, .06);            // same depth/bevel; sunk root stays in the head blend (world y≥1.35)
+  }
   if(V.fins.includes('topFin')) G.dorsal = fin(finShape([[-.16,0],[-.14,.1],[-.02,.13],[.04,.16],[.12,.1],[.18,.04],[.18,0]]), .07);
   if(V.fins.includes('gills')){ G.stalk = new THREE.CapsuleGeometry(.04, .3, 4, 8); G.stalk.translate(0, .19, 0); G.frond = new THREE.SphereGeometry(.05, 7, 4); G.frond.scale(1.9, .62, .7); G.frond.translate(.07, 0, 0); }
   G.smile = V.smile ? new THREE.TorusGeometry(V.smile.w, .011, 8, 24, V.smile.r * Math.PI / 2) : null;
