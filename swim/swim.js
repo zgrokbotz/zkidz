@@ -48,7 +48,7 @@ export function openSwim(opts={}){
   H._rs=()=>frameCam(); addEventListener('resize', H._rs);
   buildWorld(); refreshCoins(); toMenu();
   H.raf=requestAnimationFrame(loop);
-  window.__oceanSwim={ _owned:true, get H(){ return H; }, startRun, lane:d=>move(d), jump, duck, finishNow:()=>{ if(H&&H.run) endRun(); }, swPayout,
+  window.__oceanSwim={ _owned:true, get H(){ return H; }, startRun, lane:d=>move(d), jump, duck, finishNow:()=>{ if(H&&H.run) endRun(); }, swPayout, poseSwim,
     consts:{ SW_PICKUPS_PER_STARFISH, SW_METERS_PER_STARFISH, SW_RUN_CAP, SW_NEW_BEST_BONUS, SW_WIN_MIN_SECONDS, SW_BEST_MIN_SECONDS } };
   return { close:closeSwim };
 }
@@ -102,6 +102,9 @@ function buildWorld(){
   const n=90, p=new Float32Array(n*3); for(let i=0;i<n;i++){ p[i*3]=rand(-12,12); p[i*3+1]=rand(0,9); p[i*3+2]=rand(-60,8); }
   H.G.bub.setAttribute('position', new T.BufferAttribute(p,3)); const bc=document.createElement('canvas'); bc.width=bc.height=32; const bx=bc.getContext('2d'); bx.strokeStyle='rgba(255,255,255,.95)'; bx.lineWidth=3; bx.beginPath(); bx.arc(16,16,12,0,7); bx.stroke(); bx.fillStyle='rgba(220,245,255,.35)'; bx.fill(); bx.fillStyle='#fff'; bx.beginPath(); bx.arc(11,11,3,0,7); bx.fill();
   H.bubbles=new T.Points(H.G.bub, own(new T.PointsMaterial({ map:own(new T.CanvasTexture(bc)), size:.32, transparent:true, opacity:.85, depthWrite:false }))); sc.add(H.bubbles);
+  const cp=new Float32Array(24); cp.fill(-99);
+  H.charBub=new T.Points(own(new T.BufferGeometry().setAttribute('position', new T.BufferAttribute(cp,3))), H.bubbles.material);
+  H.charBub.frustumCulled=false; sc.add(H.charBub);
   H.cam=new T.PerspectiveCamera(60,1,.1,120); frameCam();
   const S=H.opts.S||{}; H.charId=S.selChar||'ollie';
   try{ H.char=k.buildChar(H.charId); }catch(e){ H.char=null; }
@@ -137,9 +140,9 @@ function toMenu(){
 function resetRun(idle){
   if(!H.scene) return;
   (H.obs||[]).forEach(o=>H.scene.remove(o.g)); (H.picks||[]).forEach(p=>H.scene.remove(p.g));
-  H.obs=[]; H.picks=[]; H.pz=0; H.px=0; H.lane=0; H.py=0; H.vy=0; H.duckT=0; H.nextRow=-34; H.pickT=4; H.inv=0; H.fx=[];
+  H.obs=[]; H.picks=[]; H.pz=0; H.px=0; H.lane=0; H.py=0; H.vy=0; H.duckT=0; H.nextRow=-34; H.pickT=4; H.inv=0; H.fx=[]; H.swT=0;
   H.decor.forEach((d,i)=>d.position.z=-i*4.5+10);
-  if(H.char){ H.char.position.set(0,0,0); H.char.scale.set(1,1,1); H.char.visible=true; }
+  if(H.char){ H.char.position.set(0,0,0); H.char.scale.set(1,1,1); H.char.visible=true; const rig=H.char.userData.parts&&H.char.userData.parts.rig; if(rig) rig.position.z=0; }
 }
 
 /* ================= run ================= */
@@ -193,7 +196,7 @@ function spawnPickLine(){
 function step(dt){
   const r=H.run, k=H.opts.kit;
   if(!r.started){ r.countdown-=dt; const n=Math.ceil(r.countdown-0.4); $('.sw-count').textContent=n>0?n:'GO!'; if(r.countdown<=0){ r.started=true; $('.sw-count').classList.add('hidden'); H.sfx.coin(); } return; }
-  r.t+=dt; r.speed=Math.min(SPEED_MAX, r.speed+SPEED_UP*dt); if(H.inv>0) H.inv-=dt;
+  r.t+=dt; H.swT=(H.swT||0)+dt; r.speed=Math.min(SPEED_MAX, r.speed+SPEED_UP*dt); if(H.inv>0) H.inv-=dt;
   const ds=r.speed*dt; H.pz-=ds; r.meters+=ds;
   // lanes, jump, duck
   H.px+= (H.lane*LANE-H.px)*Math.min(1, dt*12);
@@ -264,6 +267,31 @@ function endRun(){
   H.lastResult={ meters, pickups:r.pickups, secs:r.t, newBest, bestPays, pay, earned, countsWin, win };
 }
 
+
+/* Swim pose (sample): flutter-kick legs, alternating arm strokes, body pitched
+   horizontal-ish, gentle bob. Called after animateChar('idle') so blinks/tails still tick.
+   No new assets — a few exhaled bubbles reuse the scene Points material. */
+function poseSwim(o, t, duck, air){
+  const p=o&&o.userData&&o.userData.parts, rig=p&&p.rig; if(!rig) return;
+  const a=t*2.8, k=t*14, tilt=1.15, mid=((p.head&&p.head.position.y)||1.5)*.55;
+  const y=1.05+Math.sin(t*2.2)*.05-(duck?.4:0)+(air?.15:0);
+  rig.rotation.set(tilt+Math.sin(a)*.05, 0, Math.sin(a)*.1);
+  rig.position.set(0, y-mid*Math.cos(tilt), -mid*Math.sin(tilt));
+  p['sh-1'].rotation.set(Math.sin(a)*1.35-.2, Math.cos(a)*.25, -.55);
+  p.sh1.rotation.set(Math.sin(a+Math.PI)*1.35-.2, Math.cos(a+Math.PI)*.25, .55);
+  const B=o.userData.zkAnim&&o.userData.zkAnim.base, fl=p['foot-1'], fr=p.foot1, kL=Math.sin(k), kR=-kL;
+  if(fl){ fl.position.z=(B?B.fLz:0)+kL*.14; fl.position.y=(B?B.fLy:.07)+Math.abs(kL)*.04; fl.rotation.x=(B?B.fLr:0)+kL*.7; }
+  if(fr){ fr.position.z=(B?B.fRz:0)+kR*.14; fr.position.y=(B?B.fRy:.07)+Math.abs(kR)*.04; fr.rotation.x=(B?B.fRr:0)+kR*.7; }
+  if(p.head) p.head.rotation.x-=.35;
+}
+function tickCharBubs(dt, on){
+  if(!H.charBub) return; const bp=H.charBub.geometry.attributes.position, a=bp.array;
+  for(let i=0;i<a.length;i+=3){ if(a[i+1]>-50){ a[i+1]+=dt*1.6; if(a[i+1]>(H.py||0)+2.8) a[i+1]=-99; } }
+  if(on){ H._cbT=(H._cbT||0)-dt; if(H._cbT<=0){ H._cbT=.2+Math.random()*.25; const i=(H._cbI=(H._cbI|0)+1)%8;
+    a[i*3]=(H.px||0)+rand(-.18,.18); a[i*3+1]=(H.py||0)+1.15; a[i*3+2]=(H.pz||0)-.55; } }
+  bp.needsUpdate=true;
+}
+
 /* ================= loop ================= */
 function loop(now){
   if(!H) return; H.raf=requestAnimationFrame(loop);
@@ -280,13 +308,16 @@ function render(dt){
   for(const o of H.obs) if(o.kind==='jelly'){ o.g.position.y=1.85+Math.sin(t*2.4+o.g.userData.bob)*.12; o.g.scale.y=1+Math.sin(t*4+o.g.userData.bob)*.08; }
   for(const p of H.picks){ p.g.rotation.y=t*3+p.z; p.g.position.y=p.y+Math.sin(t*3+p.z)*.08; }
   const bp=H.bubbles.geometry.attributes.position, a=bp.array; for(let i=0;i<a.length;i+=3){ a[i+1]+=dt*1.2; if(a[i+1]>9) a[i+1]=0; if(a[i+2]>H.pz+8) a[i+2]-=68; } bp.needsUpdate=true;
-  if(H.char){ const o=H.char, running=r&&r.started&&!r.paused&&H.screen==='run';
+  if(H.char){ const o=H.char, inRun=H.screen==='run';
     o.position.set(H.px, H.py, H.pz); o.rotation.z=(H.lane*LANE-H.px)*-.12; o.rotation.y=Math.PI;
-    const sq = H.duckT>0&&H.py<.05 ? .55 : 1; o.scale.y += (sq-o.scale.y)*Math.min(1,dt*18);
+    if(inRun) o.scale.y=1; else { const sq = H.duckT>0&&H.py<.05 ? .55 : 1; o.scale.y += (sq-o.scale.y)*Math.min(1,dt*18); }
     o.visible = !(H.inv>0 && Math.floor(H.inv*10)%2===0);
-    try{ k.animateChar(o, !r||H.screen!=='run'? (H.screen==='results'?'happy':'idle') : !running? 'idle' : H.py>0? 'air' : 'move', running? Math.min(9, r.speed*.6) : 0, dt, t); k.tickAccessories && k.tickAccessories(o, dt, t); }catch(e){}
+    try{ k.animateChar(o, H.screen==='results'?'happy':'idle', 0, dt, t); k.tickAccessories && k.tickAccessories(o, dt, t); }catch(e){}
+    if(inRun) poseSwim(o, H.swT||0, H.duckT>0&&H.py<.05, H.py>0);
+    else { const rig=o.userData.parts&&o.userData.parts.rig; if(rig) rig.position.z=0; }
     if(H.screen==='menu') o.rotation.y=Math.sin(t*.6)*.35;   // menu: face the camera and sway
   }
+  tickCharBubs(dt, !!(r&&r.started&&H.screen==='run'));
   if(H.key){ H.key.position.set(H.px+5, 14, H.pz+9); H.key.target.position.set(H.px, 0, H.pz-3); H.key.target.updateMatrixWorld(); }
   const c=H.cam, menu=H.screen==='menu';
   if(menu){ c.position.set(0, 2.1, H.pz+(H.portrait?6.6:5.2)); c.lookAt(H.portrait?0:1.7, H.portrait?.35:1.15, H.pz); }
