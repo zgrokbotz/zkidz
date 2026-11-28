@@ -10,7 +10,7 @@
 // For tees/pants to fit the new silhouette, OLLIE_PROFILE in game.js must be replaced by OLLIE_PROFILE_V2
 // (bodyR()/profileSlice() read it). See MERGE_NOTE.md.
 import * as THREE from './vendor/three.module.min.js?v=20261124-3';
-import { buildSpeciesV2, FRAME_EXTENT } from './species-v2.js?v=20261126-1';
+import { buildSpeciesV2, FRAME_EXTENT } from './species-v2.js?v=20261127-3';
 
 export const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 

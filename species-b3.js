@@ -5,7 +5,7 @@
 // no skinned meshes, no per-frame allocations). Self-contained: geometry helpers are copied from species-b2.js so the
 // live batch-2 module does not change. Parts contract: rig, body, head, hatAnchor, eyeAnchor, sh+-1 > arm+-1, foot+-1, tail.
 import * as THREE from './vendor/three.module.min.js?v=20261124-3';
-import { clay, gloss, shineMat, neckTorso, sstep } from './ollie-v2.js?v=20261126-1';
+import { clay, gloss, shineMat, neckTorso, sstep } from './ollie-v2.js?v=20261127-3';
 
 const TAU = Math.PI * 2, Zv = new THREE.Vector3(0, 0, 1);
 

@@ -47,6 +47,30 @@ export const SPECIES = {
   polly:   { tail:'y', tailAmp:.08, tailSpd:1.6, flap:.14, gill:0 },   // puffin waddle + wing flap
   wally:   { tail:'y', tailAmp:.10, tailSpd:1.6, flap:.14, gill:0 },
   nudi:    { tail:'y', tailAmp:.10, tailSpd:1.8, flap:.08, gill:.20 }, // horn wiggle
+  pinchy:  { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.10, gill:.12 }, // batch 4: claw wave + eye-stalk wobble
+  tusk:    { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.10, gill:0 },
+  mo:      { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.10, gill:0 },
+  gus:     { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.16, gill:0 },   // wing flap
+  zippy:   { tail:'y', tailAmp:.40, tailSpd:5.0, flap:.14, gill:0 },   // fan-tail swish
+  puff:    { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.18, gill:0 },   // fin buzz
+  shelly:  { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.10, gill:0 },
+  coco:    { tail:'y', tailAmp:.12, tailSpd:1.6, flap:.12, gill:0 },   // curled tail sway
+  stella:  { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.14, gill:0 },   // batch 5: star-arm wave
+  hank:    { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.12, gill:0 },   // mitt claws
+  inky:    { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.14, gill:0 },   // tentacle-arm flap
+  milo:    { tail:'y', tailAmp:.25, tailSpd:2.0, flap:.12, gill:0 },   // slow wing beat + whip tail
+  hammy:   { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.12, gill:0 },
+  harbor:  { tail:'y', tailAmp:.12, tailSpd:1.6, flap:.12, gill:0 },   // flipper tail
+  tango:   { tail:'y', tailAmp:.40, tailSpd:5.0, flap:.14, gill:0 },   // fan-tail swish
+  barrie:  { tail:'y', tailAmp:.35, tailSpd:4.5, flap:.12, gill:0 },   // forked tail swish
+  gulliver:{ tail:'y', tailAmp:0,   tailSpd:1.0, flap:.16, gill:0 },   // batch 6: wing-nub flap
+  iggy:    { tail:'y', tailAmp:.18, tailSpd:1.8, flap:.10, gill:0 },   // heavy tail sway
+  flip:    { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.12, gill:0 },
+  reef:    { tail:'y', tailAmp:.35, tailSpd:4.5, flap:.14, gill:0 },   // tail-nub swish
+  sal:     { tail:'y', tailAmp:.40, tailSpd:4.5, flap:.14, gill:0 },   // fan-tail swish
+  coral:   { tail:'y', tailAmp:.25, tailSpd:3.0, flap:.12, gill:0 },   // small tail swish (fan rides on the head)
+  momo:    { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.14, gill:0 },   // pec-fin flap
+  toro:    { tail:'y', tailAmp:0,   tailSpd:1.0, flap:.14, gill:0 },
 };
 // per-character feel (o.userData.animStyle, set by buildOllieV2 variants). Multipliers on the blended pose + extras.
 export const STYLES = {

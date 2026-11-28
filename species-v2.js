@@ -3,10 +3,13 @@
 // material (one shader per species: belly/patches/dots/stripes are fragment masks, so no extra meshes or textures),
 // and cached fins/tails/gills. buildOllieV2() calls buildSpeciesV2() for every non-otter playable.
 import * as THREE from './vendor/three.module.min.js?v=20261124-3';
-import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261126-1';
-import { B2, buildB2, b2Profile, clothProfile as b2ClothProfile, CLOTH_FIT as CLOTH_FIT_B2 } from './species-b2.js?v=20261126-1';   // batch 2 (v5 polish + CLOTH_FIT)
-import { B3, buildB3, b3Profile, CLOTH_FIT as CLOTH_FIT_B3 } from './species-b3.js?v=20261126-1';   // batch 3 (A: squirt angie bella echo sharkie polly wally nudi)
-export const CLOTH_FIT = { ...CLOTH_FIT_B2, ...CLOTH_FIT_B3 };
+import { clay, gloss, shineMat, smoothLathe, spline, merge, sstep, torsoLathe, blendArm, neckTorso } from './ollie-v2.js?v=20261127-3';
+import { B2, buildB2, b2Profile, clothProfile as b2ClothProfile, CLOTH_FIT as CLOTH_FIT_B2 } from './species-b2.js?v=20261127-3';   // batch 2 (v5 polish + CLOTH_FIT)
+import { B3, buildB3, b3Profile, CLOTH_FIT as CLOTH_FIT_B3 } from './species-b3.js?v=20261127-3';   // batch 3 (A: squirt angie bella echo sharkie polly wally nudi)
+import { B4, buildB4, b4Profile, CLOTH_FIT as CLOTH_FIT_B4 } from './species-b4.js?v=20261127-3';   // batch 4 (B: pinchy tusk mo gus zippy puff shelly coco)
+import { B5, buildB5, b5Profile, CLOTH_FIT as CLOTH_FIT_B5 } from './species-b5.js?v=20261127-3';   // batch 5 (C: stella hank inky milo hammy harbor tango barrie)
+import { B6, buildB6, b6Profile, CLOTH_FIT as CLOTH_FIT_B6 } from './species-b6.js?v=20261127-3';   // batch 6 (D: gulliver iggy flip reef sal coral momo toro)
+export const CLOTH_FIT = { ...CLOTH_FIT_B2, ...CLOTH_FIT_B3, ...CLOTH_FIT_B4, ...CLOTH_FIT_B5, ...CLOTH_FIT_B6 };
 export function clothFit(kind){ return CLOTH_FIT[kind] || {}; }
 
 const W = 'vec3(0.97,0.96,0.93)';
@@ -108,6 +111,9 @@ vec3 zkPaint(vec3 p, vec3 base, float part){
 const KINDS = Object.keys(SPECIES_V2);
 export const BATCH2 = ['pip','sunny','jelly','lulu','percy','nova','kelpie','giga'];
 export const BATCH3 = ['squirt','angie','bella','echo','sharkie','polly','wally','nudi'];
+export const BATCH4 = ['pinchy','tusk','mo','gus','zippy','puff','shelly','coco'];
+export const BATCH5 = ['stella','hank','inky','milo','hammy','harbor','tango','barrie'];
+export const BATCH6 = ['gulliver','iggy','flip','reef','sal','coral','momo','toro'];
 
 export const FRAME_EXTENT = {
   ollie: { w:2.04, h:2.23, d:1.72, x0:-0.68, x1:1.36, y0:-0.01, y1:2.22, z0:-1.09, z1:0.63 },
@@ -132,6 +138,33 @@ export const FRAME_EXTENT = {
   sharkie: { w:2.56, h:2.40, d:1.83, x0:-1.28, x1:1.28, y0:-0.05, y1:2.40, z0:-1.04, z1:0.79 },
   polly: { w:2.22, h:2.25, d:1.78, x0:-1.11, x1:1.11, y0:-0.03, y1:2.25, z0:-0.78, z1:1.00 },
   wally: { w:2.33, h:2.34, d:1.50, x0:-1.17, x1:1.16, y0:-0.05, y1:2.34, z0:-0.74, z1:0.76 },
+  // batch 4 (B) — measured rest boxes (no outfit)
+  pinchy: { w:2.84, h:2.02, d:1.35, x0:-1.45, x1:1.39, y0:-0.02, y1:2, z0:-0.75, z1:0.6 },
+  tusk: { w:2.43, h:2.34, d:1.58, x0:-1.22, x1:1.21, y0:-0.05, y1:2.29, z0:-0.78, z1:0.8 },
+  mo: { w:2.41, h:2.34, d:1.50, x0:-1.21, x1:1.2, y0:-0.05, y1:2.29, z0:-0.74, z1:0.76 },
+  gus: { w:2.26, h:2.38, d:1.93, x0:-1.13, x1:1.13, y0:-0.03, y1:2.35, z0:-0.75, z1:1.18 },
+  zippy: { w:2.57, h:2.29, d:1.99, x0:-1.29, x1:1.28, y0:-0.05, y1:2.24, z0:-1.17, z1:0.82 },
+  puff: { w:2.68, h:2.05, d:1.99, x0:-1.35, x1:1.33, y0:-0.02, y1:2.03, z0:-1.03, z1:0.96 },
+  shelly: { w:2.12, h:2.32, d:1.40, x0:-1.06, x1:1.06, y0:-0.05, y1:2.27, z0:-0.72, z1:0.68 },
+  coco: { w:1.71, h:2.44, d:2.13, x0:-0.86, x1:0.85, y0:-0.02, y1:2.42, z0:-1.13, z1:1 },
+  // batch 5 (C) — measured rest boxes (no outfit)
+  stella: { w:2.13, h:2.08, d:0.54, x0:-1.07, x1:1.06, y0:-0.02, y1:2.06, z0:-0.25, z1:0.29 },
+  hank: { w:2.03, h:2.35, d:2.35, x0:-1.05, x1:0.98, y0:-0.09, y1:2.26, z0:-1.11, z1:1.24 },
+  inky: { w:2.62, h:2.34, d:1.97, x0:-1.31, x1:1.31, y0:-0.01, y1:2.33, z0:-1.09, z1:0.88 },
+  milo: { w:4.09, h:2.14, d:1.95, x0:-2.05, x1:2.04, y0:-0.02, y1:2.12, z0:-1.26, z1:0.69 },
+  hammy: { w:2.40, h:2.22, d:1.53, x0:-1.21, x1:1.19, y0:-0.05, y1:2.17, z0:-0.81, z1:0.72 },
+  harbor: { w:2.28, h:2.32, d:1.92, x0:-1.14, x1:1.14, y0:-0.04, y1:2.28, z0:-1.15, z1:0.77 },
+  tango: { w:2.59, h:2.35, d:2.01, x0:-1.3, x1:1.29, y0:-0.05, y1:2.3, z0:-1.25, z1:0.76 },
+  barrie: { w:2.20, h:2.33, d:1.75, x0:-1.1, x1:1.1, y0:-0.03, y1:2.3, z0:-1.07, z1:0.68 },
+  // batch 6 (D) — measured rest boxes (no outfit)
+  gulliver: { w:2.39, h:2.24, d:1.69, x0:-1.19, x1:1.2, y0:-0.01, y1:2.23, z0:-0.79, z1:0.9 },
+  iggy: { w:2.51, h:2.39, d:2.24, x0:-1.26, x1:1.25, y0:-0.04, y1:2.35, z0:-1.4, z1:0.84 },
+  flip: { w:2.60, h:2.29, d:1.49, x0:-1.3, x1:1.3, y0:-0.04, y1:2.25, z0:-0.71, z1:0.78 },
+  reef: { w:2.56, h:2.27, d:2.06, x0:-1.28, x1:1.28, y0:-0.04, y1:2.23, z0:-1.13, z1:0.93 },
+  sal: { w:2.65, h:2.27, d:2.25, x0:-1.33, x1:1.32, y0:-0.04, y1:2.23, z0:-1.41, z1:0.84 },
+  coral: { w:2.51, h:2.40, d:2.02, x0:-1.26, x1:1.25, y0:-0.04, y1:2.36, z0:-1.23, z1:0.79 },
+  momo: { w:2.87, h:2.44, d:1.85, x0:-1.46, x1:1.45, y0:-0.05, y1:2.39, z0:-1.03, z1:0.82 },
+  toro: { w:2.19, h:2.31, d:1.33, x0:-1.1, x1:1.09, y0:-0.03, y1:2.28, z0:-0.72, z1:0.61 },
   nudi: { w:2.08, h:2.35, d:1.49, x0:-1.04, x1:1.04, y0:-0.05, y1:2.3, z0:-0.68, z1:0.81 },
 };
 
@@ -190,6 +223,9 @@ function geos(k){
 export const SPECIES_PROFILES = {}; for(const k of KINDS) SPECIES_PROFILES[k] = spline([...SPECIES_V2[k].body, ...SPECIES_V2[k].head], 90);
 for(const k of BATCH2) Object.defineProperty(SPECIES_PROFILES, k, { enumerable: true, get: () => b2Profile(k) });   // batch 2: measured torso profile (built on first use)
 for(const k of BATCH3) Object.defineProperty(SPECIES_PROFILES, k, { enumerable: true, get: () => b3Profile(k) });   // batch 3
+for(const k of BATCH4) Object.defineProperty(SPECIES_PROFILES, k, { enumerable: true, get: () => b4Profile(k) });   // batch 4
+for(const k of BATCH5) Object.defineProperty(SPECIES_PROFILES, k, { enumerable: true, get: () => b5Profile(k) });   // batch 5
+for(const k of BATCH6) Object.defineProperty(SPECIES_PROFILES, k, { enumerable: true, get: () => b6Profile(k) });   // batch 6
 
 // Clothing profile for bodyR()/profileSlice() (tees at y=0.6–1.2, pants at 0.26–0.62).
 // Dome/mantle bodies (Jelly starts at y=0.68) must not let bodyR extrapolate below the first
@@ -213,6 +249,9 @@ function surfZ(V, P, x, yl){ const R = headR(P, yl + V.headY), kk = sstep(V.neck
 export function buildSpeciesV2(kind, { equipped = {}, ghost = false } = {}, D){
   if(B2[kind]){ const g = buildB2(kind, { equipped, ghost }, D); g.userData.extent = FRAME_EXTENT[kind]; return g; }
   if(B3[kind]){ const g = buildB3(kind, { equipped, ghost }, D); g.userData.extent = FRAME_EXTENT[kind]; return g; }
+  if(B4[kind]){ const g = buildB4(kind, { equipped, ghost }, D); g.userData.extent = FRAME_EXTENT[kind]; return g; }
+  if(B5[kind]){ const g = buildB5(kind, { equipped, ghost }, D); g.userData.extent = FRAME_EXTENT[kind]; return g; }
+  if(B6[kind]){ const g = buildB6(kind, { equipped, ghost }, D); g.userData.extent = FRAME_EXTENT[kind]; return g; }
   const V = SPECIES_V2[kind], G = geos(kind), P = SPECIES_PROFILES[kind];
   const paint = off => ({ key: kind, glsl: V.glsl, off, part: 0 });
   const o = { rough: V.rough ?? .8, cc: V.cc ?? .05, sheen: V.sheen ?? (V.cc ? .15 : .42) };

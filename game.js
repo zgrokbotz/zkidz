@@ -8,9 +8,9 @@ import { openHideSeek } from './hide/hide-seek.js?v=20261124-3';
 import { openSpeller } from './speller/speller.js?v=20261124-3';
 import { openSwim } from './swim/swim.js?v=20261124-3';
 import { openBubble } from './bubble/bubble.js?v=20261124-7';
-import { syncLobbyChar, initLobbyChest } from './lobbyanim/lobbyanim.js?v=20261126-8';
-import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261126-1';
-import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261126-1';
+import { syncLobbyChar, initLobbyChest } from './lobbyanim/lobbyanim.js?v=20261127-3';
+import { buildOllieV2, installOllieV2, setOllieVariant, OLLIE_PROFILES } from './ollie-v2.js?v=20261127-3';
+import { animateChar, triggerAnim } from './zkidz-anim.js?v=20261127-3';
 import { setupVisionScene, setVisionToneMapping, buildPedestal, addBlobShadow, VISION_ACES, VISION_EXPOSURE } from './zkidz-look.js?v=20261124-3';
 import { uTime, uOcc, patch, buildCoralGeos, buildMats, sandMaterial, CORAL_PAL, Instancer, coralHedge, kelp, godRays, specks, farReef, archway, mtx, MATS, CORAL_GEOS } from './gfx.js?v=20261124-3';
 import * as LB from './lb.js?v=20261124-3';
@@ -102,11 +102,22 @@ const CHARS = [
   { id:'wally',  name:'Wally the Whale',      em:'🐋', r:'legendary',color:0x3f9be8 },
   { id:'kelpie', name:'Kelpie the Seaweed',   em:'🌿', r:'rare',     color:0x5c9a3c },
   { id:'giga',   name:'Giga the Giant Squid', em:'🦑', r:'epic',     color:0xc45a3c },
+  { id:'harbor', name:'Harbor the Sea Lion',  em:'🐾', r:'uncommon', color:0xc4a882 },
+  { id:'tango',  name:'Tango the Blue Tang',  em:'🐠', r:'uncommon', color:0x2f6fe0 },
+  { id:'barrie', name:'Barrie the Barracuda', em:'🐟', r:'epic',     color:0x7a8b8a },
+  { id:'gulliver', name:'Gulliver the Seagull', em:'🕊️', r:'rare',     color:0xf2f2f0 },
+  { id:'iggy',   name:'Iggy the Marine Iguana', em:'🦎', r:'uncommon', color:0x4a5a4a },
+  { id:'flip',   name:'Flip the Flounder',    em:'🫓', r:'common',   color:0xd2b48c },
+  { id:'reef',   name:'Reef the Parrotfish',  em:'🦜', r:'uncommon', color:0x2bb7a8 },
+  { id:'sal',    name:'Sal the Salmon',       em:'🌅', r:'common',   color:0xe07a5f },
+  { id:'coral',  name:'Coral the Lionfish',   em:'🦁', r:'rare',     color:0xf4e1c1 },
+  { id:'momo',   name:'Momo the Sunfish',     em:'🌞', r:'uncommon', color:0xb6bbc2 },
+  { id:'toro',   name:'Toro the Tuna',        em:'🐟', r:'common',   color:0x2b4ca0 },
 ];
-const ART_IDS = ['ollie','pip','sunny','bubbles','nova','dash','shelly','pinchy','coco','squirt','lulu','percy','sharkie','oscar','wade','polly','hammy','zippy','bella','tusk','mo','gus','angie','nudi','echo','jelly','stella','finn','puff','hank','inky','milo','wally','kelpie','giga'];
+const ART_IDS = ['ollie','pip','sunny','bubbles','nova','dash','shelly','pinchy','coco','squirt','lulu','percy','sharkie','oscar','wade','polly','hammy','zippy','bella','tusk','mo','gus','angie','nudi','echo','jelly','stella','finn','puff','hank','inky','milo','wally','kelpie','giga','harbor','tango','barrie','gulliver','iggy','flip','reef','sal','coral','momo','toro'];
 CHARS.forEach(c=>c.art = ART_IDS.includes(c.id));
 // Official chart numbers (Zharacters handoff). Used as a stable secondary sort on the Characters screen.
-const CHAR_CHART = {ollie:1,pip:2,sunny:3,stella:4,hank:5,pinchy:6,tusk:7,mo:8,gus:9,jelly:10,dash:11,zippy:12,finn:13,puff:14,shelly:15,coco:16,bubbles:17,squirt:18,lulu:19,angie:20,bella:21,echo:22,percy:23,sharkie:24,polly:25,inky:26,milo:27,wally:28,oscar:29,nova:30,wade:31,nudi:32,hammy:33,kelpie:51,giga:63};
+const CHAR_CHART = {ollie:1,pip:2,sunny:3,stella:4,hank:5,pinchy:6,tusk:7,mo:8,gus:9,jelly:10,dash:11,zippy:12,finn:13,puff:14,shelly:15,coco:16,bubbles:17,squirt:18,lulu:19,angie:20,bella:21,echo:22,percy:23,sharkie:24,polly:25,inky:26,milo:27,wally:28,oscar:29,nova:30,wade:31,nudi:32,hammy:33,harbor:34,tango:36,gulliver:41,iggy:42,barrie:45,flip:46,reef:48,sal:49,coral:50,kelpie:51,momo:60,toro:62,giga:63};
 function charsByRarity(list){
   return list.slice().sort((a,b)=>{
     const ra=(RMAP[a.r]&&RMAP[a.r].idx), rb=(RMAP[b.r]&&RMAP[b.r].idx);
@@ -115,7 +126,7 @@ function charsByRarity(list){
   });
 }
 const CMAP = Object.fromEntries(CHARS.map(c=>[c.id,c]));
-const REEF_ART = new Set(['ollie','pip','sunny','stella','hank','pinchy','tusk','mo','gus','jelly','dash','zippy','finn','puff','shelly','coco','bubbles','squirt','lulu','angie','bella','echo','percy','sharkie','polly','inky','milo','wally','oscar','nova','wade','nudi','kelpie','giga']);
+const REEF_ART = new Set(['ollie','pip','sunny','stella','hank','pinchy','tusk','mo','gus','jelly','dash','zippy','finn','puff','shelly','coco','bubbles','squirt','lulu','angie','bella','echo','percy','sharkie','polly','inky','milo','wally','oscar','nova','wade','nudi','kelpie','giga','hammy','harbor','tango','barrie','gulliver','iggy','flip','reef','sal','coral','momo','toro']);
 function artUrl(id){ if(window.__ART && window.__ART[id]) return window.__ART[id]; if(REEF_ART.has(id)) return `art/reef/${id}.jpg?v=${ASSET_V}`; return `art/${id}.jpg?v=${ASSET_V}`; }
 function iconHtml(it, cls='ic'){ if(it.slot && it.m){ const u=itemThumb(it); if(u) return `<div class="${cls} thumbic"><img src="${u}" alt="${it.name}" draggable="false"></div>`; }
   return it.art ? `<div class="${cls} artic"><img src="${artUrl(it.id)}" alt="${it.name}" draggable="false"></div>` : `<div class="${cls}" ${it.hue?`style="filter:hue-rotate(${it.id==='bubbles'?'300deg':'180deg'}) saturate(1.5)"`:''}>${it.em}</div>`; }
@@ -337,7 +348,7 @@ function softMat(color, ghost, o={}){
   if(ghost){ m.transparent=true; m.opacity=.4; m.depthWrite=false; } else patch(m, { rim:[o.rim??0xffe2c4, o.rimS??.28, 2.6] });
   return m; }
 const SHOP_STAND = `<svg class="shop-svg" viewBox="0 0 64 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M6 8h52l-5 16H11L6 8z" fill="#fff4d6" stroke="#16163a" stroke-width="3" stroke-linejoin="round"/><path d="M14 8l4 16h9L23 8z" fill="#ff5b6c"/><path d="M36 8l4 16h9L45 8z" fill="#ff5b6c"/><path d="M6 8h52" fill="none" stroke="#16163a" stroke-width="3"/><circle cx="14" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="26" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><circle cx="38" cy="22" r="3.2" fill="#fff4d6" stroke="#16163a" stroke-width="2"/><circle cx="50" cy="22" r="3.2" fill="#ff5b6c" stroke="#16163a" stroke-width="2"/><rect x="12" y="28" width="40" height="20" rx="4" fill="#e39a3a" stroke="#16163a" stroke-width="3"/><rect x="20" y="32" width="24" height="10" rx="2" fill="#7fd6ff" stroke="#16163a" stroke-width="2"/><polygon points="32,4 34.2,8.6 39.2,9 35.4,12.4 36.5,17.2 32,14.6 27.5,17.2 28.6,12.4 24.8,9 29.8,8.6" fill="#ffc94a" stroke="#16163a" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
-const PLAYABLE = new Set(['ollie','dash','finn','bubbles','oscar','wade','pip','sunny','jelly','lulu','percy','nova','kelpie','giga','squirt','angie','bella','echo','sharkie','polly','wally','nudi']);   // + batch 3 (A)
+const PLAYABLE = new Set(['ollie','dash','finn','bubbles','oscar','wade','pip','sunny','jelly','lulu','percy','nova','kelpie','giga','squirt','angie','bella','echo','sharkie','polly','wally','nudi','pinchy','tusk','mo','gus','zippy','puff','shelly','coco','stella','hank','inky','milo','hammy','harbor','tango','barrie','gulliver','iggy','flip','reef','sal','coral','momo','toro']);   // + batch 3 (A) + batch 4 (B) + batch 5 (C) + batch 6 (D)
 function isPlayable(id){ return PLAYABLE.has(id); }
 function flukeGroup(mat){
   const g=new THREE.Group();

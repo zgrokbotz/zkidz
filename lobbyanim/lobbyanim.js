@@ -10,7 +10,7 @@
      no pixel-ratio setViewport). The strip is played by a CSS steps() animation, so there is
      no per-frame JS or WebGL work in the lobby. It re-bakes only when the selected character
      or its outfit changes. */
-import { SPECIES } from '../zkidz-anim.js?v=20261126-1';
+import { SPECIES } from '../zkidz-anim.js?v=20261127-3';
 
 const N=12, FH=128, ASPECT=0.9, FW=Math.round(FH*ASPECT), PAD=0.12;
 const st={ scene:null, cam:null, rt:null, buf:null, img:null, tmp:null, ink:null, key:'', gen:0, url:null,
